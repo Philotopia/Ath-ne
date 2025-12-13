@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athènes : Le Guide Ultime</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS & JS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
+        
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: #f4f1ea;
+            color: #2c2c2c;
+        }
+        h1, h2, h3, .serif-title {
+            font-family: 'Cinzel', serif;
+        }
+        .tab-active {
+            border-bottom: 3px solid #8c2f39;
+            color: #8c2f39;
+            font-weight: 700;
+        }
+        #map-container {
+            height: 500px;
+            width: 100%;
+            z-index: 10;
+            border-radius: 0.5rem;
+        }
+        /* Style pour l'input file caché */
+        .file-input {
+            display: none;
+        }
+        .photo-card {
+            aspect-ratio: 1 / 1;
+            transition: transform 0.2s;
+        }
+        .photo-card:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- DONNÉES CULTURELLES ---
+        const placesData = [
+            {
+                id: 1, name: "Acropole d'Athènes", zone: "Acropole", color: "red",
+                address: "Athens 105 58 (Entrée principale)", coords: [37.9715, 23.7257],
+                hours: "08:00 - 17:00", price: "Hiver: 10€ | Inclus Pass 30€",
+                booking: "Obligatoire (Créneau)", myth: "Duel Athéna/Poséidon.", philo: "Hybris et Mesure."
+            },
+            {
+                id: 2, name: "Musée de l'Acropole", zone: "Acropole", color: "red",
+                address: "Dionysiou Areopagitou 15", coords: [37.9684, 23.7285],
+                hours: "Lun-Jeu: 9h-17h | Ven: 9h-22h", price: "Hiver: 5€ | Été: 10€",
+                booking: "Conseillée", myth: "Caryatides & Gigantomachie.", philo: "Mémoire & Modernité."
+            },
+            {
+                id: 3, name: "Colline de la Pnyx", zone: "Acropole", color: "red",
+                address: "Pnyx (Accès libre)", coords: [37.9716, 23.7194],
+                hours: "Ouvert 24h/24", price: "Gratuit",
+                booking: "Non", myth: "Zeus Hypsistos.", philo: "Berceau de la Démocratie."
+            },
+            {
+                id: 4, name: "Agora Antique & Héphaïsteion", zone: "Agora", color: "blue",
+                address: "Adrianou 24", coords: [37.9750, 23.7225],
+                hours: "08:00 - 17:00", price: "Inclus Pass 30€ | Hiver: 5€",
+                booking: "Non", myth: "Héphaïstos & Thésée.", philo: "Lieu de Socrate & Procès."
+            },
+            {
+                id: 5, name: "Bibliothèque d'Hadrien", zone: "Agora", color: "blue",
+                address: "Areos 3", coords: [37.9756, 23.7262],
+                hours: "08:00 - 17:00", price: "Inclus Pass 30€ | Hiver: 3€",
+                booking: "Non", myth: "Époque Romaine.", philo: "Savoir & Pouvoir."
+            },
+            {
+                id: 6, name: "Kerameikos", zone: "Agora", color: "blue",
+                address: "Ermou 148", coords: [37.9783, 23.7179],
+                hours: "08:00 - 17:00", price: "Inclus Pass 30€ | Hiver: 4€",
+                booking: "Non", myth: "Porte des Enfers.", philo: "Memento Mori."
+            },
+            {
+                id: 7, name: "Lycée d'Aristote", zone: "Philosophie", color: "purple",
+                address: "Rigillis 11", coords: [37.9738, 23.7443],
+                hours: "08:00 - 17:00", price: "Inclus Pass 30€ | Hiver: 2€",
+                booking: "Non", myth: "Apollon Lykeios.", philo: "Logique & Empirisme."
+            },
+            {
+                id: 8, name: "Académie de Platon", zone: "Philosophie", color: "purple",
+                address: "Monastiriou 137", coords: [37.9918, 23.7083],
+                hours: "Ouvert 24h/24", price: "Gratuit",
+                booking: "Non", myth: "Héros Akadémos.", philo: "Monde des Idées."
+            },
+            {
+                id: 9, name: "Musée Archéologique", zone: "Philosophie", color: "purple",
+                address: "28is Oktovriou 44", coords: [37.9891, 23.7326],
+                hours: "Mer-Lun: 8:30-15:30", price: "Hiver: 6€",
+                booking: "Non", myth: "Trésors de Mycènes.", philo: "Art & Réalisme."
+            },
+            {
+                id: 10, name: "Cap Sounion", zone: "Hors Ville", color: "emerald",
+                address: "Sounio 195 00", coords: [37.6502, 24.0245],
+                hours: "09:30 - Coucher soleil", price: "Hiver: 5€",
+                booking: "Non", myth: "Chute d'Égée.", philo: "Nature & Sublime."
+            },
+            {
+                id: 11, name: "Lac de Vouliagmeni", zone: "Hors Ville", color: "emerald",
+                address: "Vouliagmeni 166 71", coords: [37.8073, 23.7854],
+                hours: "08:00 - 17:00", price: "~16€",
+                booking: "Non", myth: "Nymphes.", philo: "Soin du corps."
+            }
+        ];
+
+        // --- DONNÉES LIFESTYLE ---
+        const lifestyleData = {
+            hotels: [
+                { name: "Herodion Hotel", type: "Confort / 4*", area: "Plaka / Acropole", price: "100€-120€", desc: "Élégant, calme, proche musée.", address: "Rovertou Galli 4" },
+                { name: "Plaka Hotel", type: "Standard / 3*", area: "Plaka", price: "80€-100€", desc: "Vue toit-terrasse incroyable.", address: "Kapnikarea 7" },
+                { name: "Home and Poetry", type: "Boutique", area: "Plaka", price: "90€", desc: "Charme néoclassique.", address: "Lysikratous 10" }
+            ],
+            restaurants: [
+                { name: "Kuzina", type: "Moderne", price: "35€-50€", desc: "Vue temple Héphaïstos.", address: "Adrianou 9" },
+                { name: "To Kafeneio", type: "Taverne", price: "15€-25€", desc: "Authentique, bâtiment 400 ans.", address: "Epicharmou 1" },
+                { name: "Strofi", type: "Historique", price: "30€-45€", desc: "Vue Parthénon depuis 1975.", address: "Rovertou Galli 25" },
+                { name: "O Thanasis", type: "Street Food", price: "10€-15€", desc: "Meilleur Kebab de Monastiraki.", address: "Mitropoleos 69" }
+            ],
+            activities: [
+                { name: "Hammam Baths", type: "Détente", price: "45€", desc: "Bain traditionnel (Thissio).", address: "Melidoni 1" },
+                { name: "Soirée Rebetiko", type: "Musique", price: "Repas", desc: "Blues grec en taverne.", address: "Ex: Klimataria" },
+                { name: "Lycabettus", type: "Vue", price: "7.50€", desc: "Funiculaire au coucher du soleil.", address: "Aristippou 1" },
+                { name: "Cinémathèque", type: "Culture", price: "8€", desc: "Cinéma en salle historique.", address: "Ex: Danaos" }
+            ]
+        };
+
+        // --- DONNÉES DÉFI PHOTO ---
+        const photoChallenges = [
+            { id: "p1", title: "L'Imposteur", desc: "Imite la pose d'une statue (Caryatide ou Kouros).", zone: "Musée / Acropole", icon: "🗿" },
+            { id: "p2", title: "Le Chat Socratique", desc: "Trouve un chat errant et demande-lui le sens de la vie.", zone: "Agora / Plaka", icon: "🐱" },
+            { id: "p3", title: "L'Orateur", desc: "Prends une pose de discours intense face au vide.", zone: "Pnyx", icon: "📢" },
+            { id: "p4", title: "Le Gardien", desc: "Selfie épique avec le Parthénon en arrière-plan.", zone: "Acropole", icon: "🏛️" },
+            { id: "p5", title: "Le Banquet", desc: "Photo artistique de ta meilleure salade grecque ou gyros.", zone: "Taverne", icon: "🥗" },
+            { id: "p6", title: "L'Horizon", desc: "Regard mélancolique vers la mer (style Égée).", zone: "Sounion / Areopage", icon: "🌊" }
+        ];
+
+        // --- COMPOSANT CARTE ---
+        const MapComponent = ({ places }) => {
+            useEffect(() => {
+                const container = L.DomUtil.get('map-container');
+                if(container != null) container._leaflet_id = null;
+                const map = L.map('map-container').setView([37.974, 23.73], 14);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OSM & CartoDB' }).addTo(map);
+                places.forEach(place => {
+                    let color = place.color === 'red' ? '#dc2626' : place.color === 'purple' ? '#7c3aed' : place.color === 'emerald' ? '#10b981' : '#3b82f6';
+                    L.circleMarker(place.coords, { color: color, fillColor: color, fillOpacity: 0.8, radius: 10 }).addTo(map)
+                    .bindPopup(`<b>${place.name}</b><br/>${place.address}`);
+                });
+                return () => map.remove();
+            }, [places]);
+            return <div id="map-container" className="shadow-xl border border-gray-300"></div>;
+        };
+
+        // --- COMPOSANT PRINCIPAL ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('zones');
+            const [userPhotos, setUserPhotos] = useState({});
+
+            const handlePhotoUpload = (challengeId, event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const imageUrl = URL.createObjectURL(file);
+                    setUserPhotos(prev => ({ ...prev, [challengeId]: imageUrl }));
+                }
+            };
+
+            const groupByZone = (data) => data.reduce((acc, p) => { (acc[p.zone] = acc[p.zone] || []).push(p); return acc; }, {});
+            const groupedPlaces = groupByZone(placesData);
+            const zoneOrder = ["Acropole", "Agora", "Philosophie", "Hors Ville"];
+
+            return (
+                <div className="max-w-6xl mx-auto p-4 md:p-8 min-h-screen">
+                    <header className="text-center mb-10">
+                        <h1 className="text-4xl md:text-6xl text-slate-800 mb-2 tracking-tight">Athènes</h1>
+                        <h2 className="text-xl md:text-2xl text-slate-600 italic font-light font-serif">Guide Complet & Interactif</h2>
+                    </header>
+
+                    {/* MENU NAVIGATION */}
+                    <nav className="flex flex-wrap justify-center gap-2 md:gap-6 mb-8 border-b border-gray-200 sticky top-0 bg-[#f4f1ea] z-20 py-2">
+                        {[
+                            { id: 'zones', label: '🏛️ Lieux Culturels' },
+                            { id: 'map', label: '🗺️ Carte' },
+                            { id: 'lifestyle', label: '🍷 Vie Pratique' },
+                            { id: 'photos', label: '📸 Défi Photo' }
+                        ].map(tab => (
+                            <button 
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`px-4 py-2 rounded-full text-sm md:text-base transition-all ${activeTab === tab.id ? 'bg-[#8c2f39] text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </nav>
+
+                    {/* CONTENU CULTUREL */}
+                    {activeTab === 'zones' && (
+                        <div className="animate-fade-in space-y-12">
+                            {zoneOrder.map(zone => {
+                                const places = groupedPlaces[zone];
+                                const zoneColor = places[0]?.color || 'gray';
+                                const colorMap = { red: 'red', blue: 'blue', purple: 'purple', emerald: 'emerald' };
+                                const c = colorMap[zoneColor];
+                                
+                                return (
+                                    <section key={zone}>
+                                        <h3 className={`text-2xl font-bold serif-title mb-6 pb-2 border-b-2 border-${c}-600 text-${c}-800`}>
+                                            {zone === "Acropole" ? "Le Sacré" : zone === "Agora" ? "La Cité" : zone === "Philosophie" ? "La Sagesse" : "La Nature"}
+                                        </h3>
+                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {places.map(p => (
+                                                <div key={p.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                                                    <div className={`h-2 bg-${c}-500 w-full`}></div>
+                                                    <div className="p-6 flex-grow">
+                                                        <h4 className="text-xl font-bold text-slate-900">{p.name}</h4>
+                                                        <p className="text-sm text-gray-500 mb-4">{p.address}</p>
+                                                        <div className="bg-gray-50 p-3 rounded text-sm mb-4">
+                                                            <div className="font-semibold">🕒 {p.hours}</div>
+                                                            <div className="text-gray-600">🎟️ {p.price}</div>
+                                                        </div>
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="text-amber-700 bg-amber-50 p-2 rounded">⚡ <b>Mythe:</b> {p.myth}</div>
+                                                            <div className="text-sky-700 bg-sky-50 p-2 rounded">🧠 <b>Philo:</b> {p.philo}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* CONTENU CARTE */}
+                    {activeTab === 'map' && (
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                            <MapComponent places={placesData} />
+                            <p className="text-center text-gray-500 text-sm mt-4">Carte centrée sur les sites majeurs.</p>
+                        </div>
+                    )}
+
+                    {/* CONTENU LIFESTYLE */}
+                    {activeTab === 'lifestyle' && (
+                        <div className="grid gap-12 animate-fade-in">
+                            <section>
+                                <h3 className="text-2xl font-bold serif-title text-slate-800 mb-6">🛏️ Hôtels (Janvier)</h3>
+                                <div className="grid md:grid-cols-3 gap-6">
+                                    {lifestyleData.hotels.map((h, i) => (
+                                        <div key={i} className="bg-white p-6 rounded-lg border border-gray-100">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-bold text-lg">{h.name}</h4>
+                                                <span className="text-xs bg-gray-100 px-2 py-1 rounded">{h.type}</span>
+                                            </div>
+                                            <p className="text-sm text-gray-600 mb-2">{h.desc}</p>
+                                            <p className="text-sm font-bold text-slate-800">{h.price}</p>
+                                            <p className="text-xs text-gray-400 mt-2">📍 {h.address}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="text-2xl font-bold serif-title text-slate-800 mb-6">🍽️ Restaurants & Tavernes</h3>
+                                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {lifestyleData.restaurants.map((r, i) => (
+                                        <div key={i} className="bg-white p-6 rounded-lg border border-gray-100">
+                                            <h4 className="font-bold text-lg mb-1">{r.name}</h4>
+                                            <p className="text-xs text-amber-700 font-bold mb-2">{r.type}</p>
+                                            <p className="text-sm text-gray-600 mb-2">{r.desc}</p>
+                                            <p className="text-sm font-bold">{r.price}</p>
+                                            <p className="text-xs text-gray-400 mt-2">{r.address}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="text-2xl font-bold serif-title text-slate-800 mb-6">🎭 Activités & Détente</h3>
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    {lifestyleData.activities.map((a, i) => (
+                                        <div key={i} className="bg-stone-50 p-6 rounded-lg border-l-4 border-slate-400">
+                                            <div className="flex justify-between mb-1">
+                                                <h4 className="font-bold text-lg">{a.name}</h4>
+                                                <span className="text-sm font-bold">{a.price}</span>
+                                            </div>
+                                            <p className="text-sm text-gray-700">{a.desc}</p>
+                                            <p className="text-xs text-gray-500 mt-2">📍 {a.address}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        </div>
+                    )}
+
+                    {/* CONTENU DÉFI PHOTO */}
+                    {activeTab === 'photos' && (
+                        <div className="animate-fade-in">
+                            <div className="text-center mb-8 bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+                                <h3 className="text-2xl font-bold serif-title text-yellow-800 mb-2">📸 Le Bingo de l'Odyssée</h3>
+                                <p className="text-gray-700">6 Missions photos à accomplir pendant le voyage. <br/>Clique sur une case pour charger ta photo souvenir !</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
+                                {photoChallenges.map(chal => (
+                                    <label key={chal.id} className="cursor-pointer group relative">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="file-input"
+                                            onChange={(e) => handlePhotoUpload(chal.id, e)}
+                                        />
+                                        <div className={`photo-card rounded-xl border-4 shadow-md flex flex-col items-center justify-center p-4 text-center overflow-hidden relative bg-white ${userPhotos[chal.id] ? 'border-green-500' : 'border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50'}`}>
+                                            
+                                            {/* Si photo uploadée */}
+                                            {userPhotos[chal.id] ? (
+                                                <>
+                                                    <img src={userPhotos[chal.id]} className="absolute inset-0 w-full h-full object-cover opacity-90" />
+                                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-xs font-bold">
+                                                        ✅ {chal.title}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                /* Si pas de photo */
+                                                <>
+                                                    <div className="text-4xl mb-2">{chal.icon}</div>
+                                                    <h4 className="font-bold text-slate-800 mb-1">{chal.title}</h4>
+                                                    <p className="text-xs text-gray-500 leading-tight">{chal.desc}</p>
+                                                    <div className="mt-4 px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-400 group-hover:bg-blue-200 group-hover:text-blue-800 transition-colors">
+                                                        Clique pour ajouter
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                            <p className="text-center text-xs text-gray-400 mt-8 italic">
+                                * Les photos restent sur votre appareil et ne sont pas envoyées sur Internet.
+                            </p>
+                        </div>
+                    )}
+
+                    <footer className="mt-16 text-center text-gray-400 text-sm pb-8 border-t border-gray-200 pt-8">
+                        Guide Athènes Hiver 2025 • Mythe, Raison & Souvenirs
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
