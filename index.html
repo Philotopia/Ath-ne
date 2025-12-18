@@ -1,638 +1,977 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Athènes : Guide Ultime & Dark Mode</title>
-    
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS with Dark Mode Config -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        stone: { 850: '#1c1917', 900: '#0c0a09' }
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <!-- Leaflet CSS & JS for Map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Athènes : Guide Ultime & Dark Mode</title>
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
-        
-        body {
-            font-family: 'Lato', sans-serif;
-            transition: background-color 0.3s, color 0.3s;
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { stone: { 850: '#1c1917', 900: '#0c0a09' } }
         }
-        h1, h2, h3, .serif-title {
-            font-family: 'Cinzel', serif;
-        }
-        .tab-active {
-            border-bottom: 3px solid #8c2f39;
-            color: #8c2f39;
-            font-weight: 700;
-        }
-        .dark .tab-active {
-            border-bottom: 3px solid #f87171;
-            color: #f87171;
-        }
-        #map-container {
-            height: 500px;
-            width: 100%;
-            z-index: 10;
-            border-radius: 0.5rem;
-        }
-        /* Style pour l'input file caché */
-        .file-input {
-            display: none;
-        }
-        .photo-card {
-            aspect-ratio: 1 / 1;
-            transition: transform 0.2s;
-        }
-        .photo-card:active {
-            transform: scale(0.98);
-        }
-        
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #888; 
-            border-radius: 4px;
-        }
-        .dark ::-webkit-scrollbar-track {
-            background: #2d2d2d;
-        }
-        .dark ::-webkit-scrollbar-thumb {
-            background: #555;
-        }
-    </style>
+      }
+    }
+  </script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
+
+    body { font-family: 'Lato', sans-serif; transition: background-color .3s, color .3s; }
+    h1, h2, h3, .serif-title { font-family: 'Cinzel', serif; }
+
+    #map-container { height: 520px; width: 100%; z-index: 10; border-radius: .75rem; }
+
+    .file-input { display: none; }
+    .photo-card { aspect-ratio: 1 / 1; transition: transform .2s; }
+    .photo-card:active { transform: scale(.98); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+    .dark ::-webkit-scrollbar-track { background: #2d2d2d; }
+    .dark ::-webkit-scrollbar-thumb { background: #555; }
+
+    /* Animations */
+    @keyframes fadeIn { from {opacity:0; transform: translateY(6px)} to {opacity:1; transform: translateY(0)} }
+    .animate-fade-in { animation: fadeIn .28s ease both; }
+
+    @keyframes pop { 0%{transform:scale(.96)} 60%{transform:scale(1.02)} 100%{transform:scale(1)} }
+    .animate-pop { animation: pop .22s ease both; }
+
+    /* Timeline */
+    .timeline-wrap { scroll-snap-type: x mandatory; }
+    .timeline-step { scroll-snap-align: center; }
+  </style>
 </head>
+
 <body class="bg-[#f4f1ea] text-[#2c2c2c] dark:bg-stone-900 dark:text-stone-200">
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
 
-        // --- DONNÉES CULTURELLES ENRICHIES (ACTIVITÉS + IMAGES) ---
-        const placesData = [
-            // --- ACROPOLE (Rouge) ---
-            {
-                id: 1, name: "Acropole d'Athènes", zone: "Acropole", color: "red",
-                address: "Athens 105 58", coords: [37.9715, 23.7257],
-                hours: "08:00 - 17:00", price: "Hiver: 10€ | Pass 30€",
-                booking: "Obligatoire", myth: "Duel Athéna/Poséidon.", philo: "Hybris et Mesure.",
-                website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2384",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/8c2f39/FFF?text=Parthenon",
-                activity: "Monter les marches des Propylées, faire le tour complet du Parthénon, admirer les caryatides de l'Érechthéion et profiter de la vue panoramique sur toute la ville."
-            },
-            {
-                id: 2, name: "Musée de l'Acropole", zone: "Acropole", color: "red",
-                address: "Dionysiou Areopagitou 15", coords: [37.9684, 23.7285],
-                hours: "Lun-Jeu: 9h-17h | Ven: 22h", price: "Hiver: 5€",
-                booking: "Conseillée", myth: "Caryatides.", philo: "Mémoire.",
-                website: "https://www.theacropolismuseum.gr/en",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/8c2f39/FFF?text=Musee+Acropole",
-                activity: "Voir les 5 Caryatides originales, marcher sur les sols de verre au-dessus des fouilles, et déjeuner au restaurant avec vue directe sur le rocher sacré."
-            },
-            {
-                id: 3, name: "Colline de la Pnyx", zone: "Acropole", color: "red",
-                address: "Pnyx", coords: [37.9716, 23.7194],
-                hours: "24h/24", price: "Gratuit",
-                booking: "Non", myth: "Zeus Hypsistos.", philo: "Démocratie.",
-                website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2384",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/8c2f39/FFF?text=Pnyx",
-                activity: "Se tenir sur la tribune des orateurs (Bêma), imaginer les discours de Périclès, et pique-niquer face à la meilleure vue du Parthénon."
-            },
-            {
-                id: 12, name: "Monument de Philopappos", zone: "Acropole", color: "red",
-                address: "Filopappou Hill", coords: [37.9673, 23.7213],
-                hours: "24h/24", price: "Gratuit",
-                booking: "Non", myth: "Muses.", philo: "Vue panoramique.",
-                website: "http://odysseus.culture.gr/h/2/gh251.jsp?obj_id=1832",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/8c2f39/FFF?text=Philopappos",
-                activity: "Randonnée facile dans les pins, observation du monument funéraire romain et coucher de soleil sur le golfe Saronique."
-            },
-            {
-                id: 13, name: "Odéon d'Hérode Atticus", zone: "Acropole", color: "red",
-                address: "Dionysiou Areopagitou", coords: [37.9708, 23.7246],
-                hours: "Visible de l'extérieur", price: "-",
-                booking: "Spectacles uniquement", myth: "Dionysos.", philo: "Musique & Tragédie.",
-                website: "http://odysseus.culture.gr/h/2/gh251.jsp?obj_id=6622",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/8c2f39/FFF?text=Odeon+Herode",
-                activity: "Admirer l'architecture romaine depuis le chemin piétonnier menant à l'Acropole (fermé hors spectacle)."
-            },
+    // --- small helpers ---
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const safeLocalStorage = {
+      get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+      set(key, val) { try { localStorage.setItem(key, val); } catch {} }
+    };
 
-            // --- AGORA / CENTRE (Bleu) ---
-            {
-                id: 4, name: "Agora Antique", zone: "Agora", color: "blue",
-                address: "Adrianou 24", coords: [37.9750, 23.7225],
-                hours: "08:00 - 17:00", price: "Hiver: 5€ | Pass 30€",
-                booking: "Non", myth: "Héphaïstos.", philo: "Socrate.",
-                website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2485",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/2563eb/FFF?text=Agora+Antique",
-                activity: "Visiter le Temple d'Héphaïstos (le mieux conservé), flâner sous la Stoa d'Attale et chercher les traces de la prison de Socrate."
-            },
-            {
-                id: 5, name: "Bibliothèque d'Hadrien", zone: "Agora", color: "blue",
-                address: "Areos 3", coords: [37.9756, 23.7262],
-                hours: "08:00 - 17:00", price: "Hiver: 3€ | Pass 30€",
-                booking: "Non", myth: "Romain.", philo: "Savoir.",
-                website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2485",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/2563eb/FFF?text=Biblio+Hadrien",
-                activity: "Observer les vestiges des murs de marbre, les salles de lecture romaines et les églises byzantines construites à l'intérieur."
-            },
-            {
-                id: 6, name: "Kerameikos", zone: "Agora", color: "blue",
-                address: "Ermou 148", coords: [37.9783, 23.7179],
-                hours: "08:00 - 17:00", price: "Hiver: 4€ | Pass 30€",
-                booking: "Non", myth: "Enfers.", philo: "Mort.",
-                website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2392",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/2563eb/FFF?text=Kerameikos",
-                activity: "Promenade silencieuse dans l'allée des tombes, observation des stèles funéraires sculptées et visite du petit musée sur place."
-            },
-            {
-                id: 14, name: "Temple de Zeus (Olympieion)", zone: "Agora", color: "blue",
-                address: "Athens 105 57", coords: [37.9693, 23.7331],
-                hours: "08:00 - 17:00", price: "Hiver: 3€ | Pass 30€",
-                booking: "Non", myth: "Zeus.", philo: "Grandeur & Déclin.",
-                website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2488",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/2563eb/FFF?text=Temple+Zeus",
-                activity: "Se sentir tout petit face aux immenses colonnes corinthiennes restantes et voir la Porte d'Hadrien juste à côté."
-            },
-            {
-                id: 15, name: "Jardin National", zone: "Agora", color: "blue",
-                address: "Leoforos Amalias 1", coords: [37.9730, 23.7369],
-                hours: "Lever au Coucher", price: "Gratuit",
-                booking: "Non", myth: "Reine Amalia.", philo: "Botanique.",
-                website: "https://www.cityofathens.gr/en/",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/2563eb/FFF?text=Jardin+National",
-                activity: "Balade botanique, observation des tortues dans les bassins, pause lecture sur un banc à l'ombre des palmiers."
-            },
+    function useLocalStorageState(key, initialValue) {
+      const [value, setValue] = useState(() => {
+        const raw = safeLocalStorage.get(key);
+        if (raw === null) return initialValue;
+        try { return JSON.parse(raw); } catch { return initialValue; }
+      });
+      useEffect(() => safeLocalStorage.set(key, JSON.stringify(value)), [key, value]);
+      return [value, setValue];
+    }
 
-            // --- PHILOSOPHIE & CULTURE (Violet) ---
-            {
-                id: 7, name: "Lycée d'Aristote", zone: "Philosophie", color: "purple",
-                address: "Rigillis 11", coords: [37.9738, 23.7443],
-                hours: "08:00 - 17:00", price: "Hiver: 2€ | Pass 30€",
-                booking: "Non", myth: "Apollon.", philo: "Logique.",
-                website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2394",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/9333ea/FFF?text=Lycee+Aristote",
-                activity: "Marcher dans les ruines de la palestre (lutte), lire un texte d'Aristote dans les jardins, profiter du calme absolu."
-            },
-            {
-                id: 9, name: "Musée Archéologique", zone: "Philosophie", color: "purple",
-                address: "28is Oktovriou 44", coords: [37.9891, 23.7326],
-                hours: "08:30 - 15:30", price: "Hiver: 6€",
-                booking: "Non", myth: "Mycènes.", philo: "Art.",
-                website: "https://www.namuseum.gr/en/",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/9333ea/FFF?text=Musee+Archeo",
-                activity: "Voir le masque d'Agamemnon, la machine d'Anticythère, les fresques de Santorin et l'évolution de la statuaire grecque."
-            },
-            {
-                id: 16, name: "Stade Panathénaïque", zone: "Philosophie", color: "purple",
-                address: "Leof. Vasileos Konstantinou", coords: [37.9686, 23.7408],
-                hours: "08:00 - 17:00", price: "10€",
-                booking: "Non", myth: "Athéna (Jeux).", philo: "Agon (Compétition).",
-                website: "http://www.panathenaicstadium.gr/",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/9333ea/FFF?text=Stade+Kallimarmaro",
-                activity: "Courir sur la piste olympique, monter en haut des gradins en marbre pour la photo, traverser le tunnel des gladiateurs."
-            },
-            {
-                id: 17, name: "Musée Benaki", zone: "Philosophie", color: "purple",
-                address: "Koumpari 1", coords: [37.9760, 23.7403],
-                hours: "10:00 - 18:00 (Fermé Mar)", price: "12€",
-                booking: "Non", myth: "Histoire Grecque.", philo: "Identité.",
-                website: "https://www.benaki.org/index.php?lang=fr",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/9333ea/FFF?text=Musee+Benaki",
-                activity: "Parcourir toute l'histoire grecque de l'antiquité à 1922, voir les costumes traditionnels et boire un café sur la terrasse."
-            },
-            {
-                id: 18, name: "Musée Art Cycladique", zone: "Philosophie", color: "purple",
-                address: "Neofitou Douka 4", coords: [37.9757, 23.7424],
-                hours: "10:00 - 17:00 (Fermé Mar)", price: "12€",
-                booking: "Non", myth: "Cyclades.", philo: "Abstraction.",
-                website: "https://cycladic.gr/en",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/9333ea/FFF?text=Art+Cycladique",
-                activity: "Admirer les idoles cycladiques minimalistes (inspiration de Picasso), visiter l'aile Stathatos."
-            },
+    const ZONE_UI = {
+      red:    { chip: "bg-red-50 text-red-900 dark:bg-red-900/30 dark:text-red-200",    bar: "bg-red-500",    heading: "border-red-600 text-red-900 dark:text-red-300" },
+      blue:   { chip: "bg-blue-50 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200", bar: "bg-blue-500",   heading: "border-blue-600 text-blue-900 dark:text-blue-300" },
+      purple: { chip: "bg-purple-50 text-purple-900 dark:bg-purple-900/30 dark:text-purple-200", heading: "border-purple-600 text-purple-900 dark:text-purple-300", bar: "bg-purple-500" },
+      emerald:{ chip: "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200", heading: "border-emerald-600 text-emerald-900 dark:text-emerald-300", bar: "bg-emerald-500" },
+    };
 
-            // --- HORS VILLE (Émeraude) ---
-            {
-                id: 10, name: "Cap Sounion", zone: "Hors Ville", color: "emerald",
-                address: "Sounio 195 00", coords: [37.6502, 24.0245],
-                hours: "09:30 - Coucher soleil", price: "Hiver: 5€",
-                booking: "Non", myth: "Égée.", philo: "Nature.",
-                website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2390",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/10b981/FFF?text=Cap+Sounion",
-                activity: "Admirer les graffitis de Lord Byron, regarder le soleil se coucher derrière les colonnes, descendre vers la petite crique."
-            },
-            {
-                id: 11, name: "Lac de Vouliagmeni", zone: "Hors Ville", color: "emerald",
-                address: "Vouliagmeni 166 71", coords: [37.8073, 23.7854],
-                hours: "08:00 - 17:00", price: "~16€",
-                booking: "Non", myth: "Nymphes.", philo: "Soin.",
-                website: "https://www.limnivouliagmenis.gr/en/",
-                type: "Primaire",
-                image: "https://placehold.co/600x400/10b981/FFF?text=Lac+Vouliagmeni",
-                activity: "Baignade dans l'eau thermale (22°C toute l'année), fish-spa naturel, café au bord de l'eau."
-            },
-            {
-                id: 19, name: "Centre Culturel SNFCC", zone: "Hors Ville", color: "emerald",
-                address: "Leof. Syggrou 364", coords: [37.9402, 23.6923],
-                hours: "06:00 - Minuit", price: "Gratuit",
-                booking: "Pour l'Opéra", myth: "Moderne.", philo: "Espace Public.",
-                website: "https://www.snfcc.org/en",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/10b981/FFF?text=SNFCC+Opera",
-                activity: "Monter au 'Lighthouse' pour la vue sur la mer, marcher le long du canal, visiter la bibliothèque nationale ultramoderne."
-            },
-            {
-                id: 20, name: "Mont Lycabette", zone: "Hors Ville", color: "emerald",
-                address: "Aristippou 1 (Funiculaire)", coords: [37.9820, 23.7432],
-                hours: "24h/24", price: "Funiculaire ~7.50€",
-                booking: "Non", myth: "Rocher d'Athéna.", philo: "Hauteur.",
-                website: "https://www.lycabettushill.com/",
-                type: "Secondaire",
-                image: "https://placehold.co/600x400/10b981/FFF?text=Mont+Lycabette",
-                activity: "Prendre le funiculaire ou monter à pied, visiter la chapelle Saint-Georges au sommet, boire un verre au coucher du soleil."
-            }
+    const unsplash = (q) => `https://source.unsplash.com/1200x800/?${encodeURIComponent(q)}`;
+
+    // --- DONNÉES CULTURELLES (avec vraies photos) ---
+    const placesData = [
+      // ACROPOLE
+      { id: 1, name: "Acropole d'Athènes", zone: "Acropole", color: "red", address: "Athens 105 58", coords: [37.9715, 23.7257],
+        hours: "08:00 - 17:00", price: "Hiver: 10€ | Pass 30€", booking: "Obligatoire", myth: "Duel Athéna/Poséidon.", philo: "Hybris et Mesure.",
+        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2384", type: "Primaire",
+        image: unsplash("parthenon acropolis athens"),
+        activity: "Monter les marches des Propylées, faire le tour du Parthénon, voir l'Érechthéion et profiter de la vue sur toute la ville."
+      },
+      { id: 2, name: "Musée de l'Acropole", zone: "Acropole", color: "red", address: "Dionysiou Areopagitou 15", coords: [37.9684, 23.7285],
+        hours: "Lun-Jeu: 9h-17h | Ven: 22h", price: "Hiver: 5€", booking: "Conseillée", myth: "Caryatides.", philo: "Mémoire.",
+        website: "https://www.theacropolismuseum.gr/en", type: "Primaire",
+        image: unsplash("acropolis museum athens"),
+        activity: "Voir les Caryatides, marcher sur les sols de verre au-dessus des fouilles, et manger au resto avec vue sur le rocher."
+      },
+      { id: 3, name: "Colline de la Pnyx", zone: "Acropole", color: "red", address: "Pnyx", coords: [37.9716, 23.7194],
+        hours: "24h/24", price: "Gratuit", booking: "Non", myth: "Zeus Hypsistos.", philo: "Démocratie.",
+        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2384", type: "Primaire",
+        image: unsplash("pnyx hill athens view"),
+        activity: "Se tenir sur la tribune des orateurs, imaginer les discours, et prendre la meilleure vue sur le Parthénon."
+      },
+      { id: 12, name: "Monument de Philopappos", zone: "Acropole", color: "red", address: "Filopappou Hill", coords: [37.9673, 23.7213],
+        hours: "24h/24", price: "Gratuit", booking: "Non", myth: "Muses.", philo: "Vue panoramique.",
+        website: "http://odysseus.culture.gr/h/2/gh251.jsp?obj_id=1832", type: "Secondaire",
+        image: unsplash("philopappou hill athens"),
+        activity: "Balade facile dans les pins et coucher de soleil sur la ville."
+      },
+      { id: 13, name: "Odéon d'Hérode Atticus", zone: "Acropole", color: "red", address: "Dionysiou Areopagitou", coords: [37.9708, 23.7246],
+        hours: "Visible de l'extérieur", price: "-", booking: "Spectacles uniquement", myth: "Dionysos.", philo: "Musique & Tragédie.",
+        website: "http://odysseus.culture.gr/h/2/gh251.jsp?obj_id=6622", type: "Secondaire",
+        image: unsplash("herodes atticus odeon athens"),
+        activity: "Admirer l'amphithéâtre depuis le chemin piétonnier vers l'Acropole (hors spectacle)."
+      },
+
+      // AGORA
+      { id: 4, name: "Agora Antique", zone: "Agora", color: "blue", address: "Adrianou 24", coords: [37.9750, 23.7225],
+        hours: "08:00 - 17:00", price: "Hiver: 5€ | Pass 30€", booking: "Non", myth: "Héphaïstos.", philo: "Socrate.",
+        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2485", type: "Primaire",
+        image: unsplash("ancient agora athens temple of hephaestus"),
+        activity: "Voir le temple d'Héphaïstos, flâner sous la Stoa d'Attale, et repérer les lieux associés à Socrate."
+      },
+      { id: 5, name: "Bibliothèque d'Hadrien", zone: "Agora", color: "blue", address: "Areos 3", coords: [37.9756, 23.7262],
+        hours: "08:00 - 17:00", price: "Hiver: 3€ | Pass 30€", booking: "Non", myth: "Romain.", philo: "Savoir.",
+        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2485", type: "Primaire",
+        image: unsplash("hadrian library athens ruins"),
+        activity: "Observer les vestiges des murs, les colonnes, et les couches byzantines/ottomanes du site."
+      },
+      { id: 6, name: "Kerameikos", zone: "Agora", color: "blue", address: "Ermou 148", coords: [37.9783, 23.7179],
+        hours: "08:00 - 17:00", price: "Hiver: 4€ | Pass 30€", booking: "Non", myth: "Enfers.", philo: "Mort.",
+        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2392", type: "Primaire",
+        image: unsplash("kerameikos athens cemetery"),
+        activity: "Promenade silencieuse dans l'allée des tombes + petit musée."
+      },
+      { id: 14, name: "Temple de Zeus (Olympieion)", zone: "Agora", color: "blue", address: "Athens 105 57", coords: [37.9693, 23.7331],
+        hours: "08:00 - 17:00", price: "Hiver: 3€ | Pass 30€", booking: "Non", myth: "Zeus.", philo: "Grandeur & Déclin.",
+        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2488", type: "Secondaire",
+        image: unsplash("temple of olympian zeus athens"),
+        activity: "Se sentir minuscule devant les colonnes, et voir la Porte d'Hadrien juste à côté."
+      },
+      { id: 15, name: "Jardin National", zone: "Agora", color: "blue", address: "Leoforos Amalias 1", coords: [37.9730, 23.7369],
+        hours: "Lever au Coucher", price: "Gratuit", booking: "Non", myth: "Reine Amalia.", philo: "Botanique.",
+        website: "https://www.cityofathens.gr/en/", type: "Secondaire",
+        image: unsplash("national garden athens"),
+        activity: "Balade, tortues, pause lecture à l'ombre."
+      },
+
+      // PHILOSOPHIE
+      { id: 7, name: "Lycée d'Aristote", zone: "Philosophie", color: "purple", address: "Rigillis 11", coords: [37.9738, 23.7443],
+        hours: "08:00 - 17:00", price: "Hiver: 2€ | Pass 30€", booking: "Non", myth: "Apollon.", philo: "Logique.",
+        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2394", type: "Primaire",
+        image: unsplash("aristotle lyceum athens"),
+        activity: "Lire quelques lignes d'Aristote sur place, dans le calme."
+      },
+      { id: 9, name: "Musée Archéologique", zone: "Philosophie", color: "purple", address: "28is Oktovriou 44", coords: [37.9891, 23.7326],
+        hours: "08:30 - 15:30", price: "Hiver: 6€", booking: "Non", myth: "Mycènes.", philo: "Art.",
+        website: "https://www.namuseum.gr/en/", type: "Primaire",
+        image: unsplash("national archaeological museum athens"),
+        activity: "Masque d'Agamemnon, machine d'Anticythère, fresques, évolution de la statuaire."
+      },
+      { id: 16, name: "Stade Panathénaïque", zone: "Philosophie", color: "purple", address: "Leof. Vasileos Konstantinou", coords: [37.9686, 23.7408],
+        hours: "08:00 - 17:00", price: "10€", booking: "Non", myth: "Athéna (Jeux).", philo: "Agon (Compétition).",
+        website: "http://www.panathenaicstadium.gr/", type: "Secondaire",
+        image: unsplash("panathenaic stadium athens"),
+        activity: "Monter en haut des gradins, traverser le tunnel, photo classique."
+      },
+      { id: 17, name: "Musée Benaki", zone: "Philosophie", color: "purple", address: "Koumpari 1", coords: [37.9760, 23.7403],
+        hours: "10:00 - 18:00 (Fermé Mar)", price: "12€", booking: "Non", myth: "Histoire Grecque.", philo: "Identité.",
+        website: "https://www.benaki.org/index.php?lang=fr", type: "Secondaire",
+        image: unsplash("benaki museum athens"),
+        activity: "Grand parcours historique + café terrasse."
+      },
+      { id: 18, name: "Musée Art Cycladique", zone: "Philosophie", color: "purple", address: "Neofitou Douka 4", coords: [37.9757, 23.7424],
+        hours: "10:00 - 17:00 (Fermé Mar)", price: "12€", booking: "Non", myth: "Cyclades.", philo: "Abstraction.",
+        website: "https://cycladic.gr/en", type: "Secondaire",
+        image: unsplash("cycladic museum athens"),
+        activity: "Idoles cycladiques minimalistes + aile Stathatos."
+      },
+
+      // HORS VILLE
+      { id: 10, name: "Cap Sounion", zone: "Hors Ville", color: "emerald", address: "Sounio 195 00", coords: [37.6502, 24.0245],
+        hours: "09:30 - Coucher soleil", price: "Hiver: 5€", booking: "Non", myth: "Égée.", philo: "Nature.",
+        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2390", type: "Primaire",
+        image: unsplash("cape sounion temple poseidon"),
+        activity: "Coucher de soleil derrière les colonnes, et vue mer Égée."
+      },
+      { id: 11, name: "Lac de Vouliagmeni", zone: "Hors Ville", color: "emerald", address: "Vouliagmeni 166 71", coords: [37.8073, 23.7854],
+        hours: "08:00 - 17:00", price: "~16€", booking: "Non", myth: "Nymphes.", philo: "Soin.",
+        website: "https://www.limnivouliagmenis.gr/en/", type: "Primaire",
+        image: unsplash("vouliagmeni lake greece"),
+        activity: "Baignade thermale (22°C), fish-spa naturel, café au bord de l'eau."
+      },
+      { id: 19, name: "Centre Culturel SNFCC", zone: "Hors Ville", color: "emerald", address: "Leof. Syggrou 364", coords: [37.9402, 23.6923],
+        hours: "06:00 - Minuit", price: "Gratuit", booking: "Pour l'Opéra", myth: "Moderne.", philo: "Espace Public.",
+        website: "https://www.snfcc.org/en", type: "Secondaire",
+        image: unsplash("stavros niarchos foundation cultural center athens"),
+        activity: "Monter au Lighthouse, marcher le long du canal, bibliothèque nationale."
+      },
+      { id: 20, name: "Mont Lycabette", zone: "Hors Ville", color: "emerald", address: "Aristippou 1 (Funiculaire)", coords: [37.9820, 23.7432],
+        hours: "24h/24", price: "Funiculaire ~7.50€", booking: "Non", myth: "Rocher d'Athéna.", philo: "Hauteur.",
+        website: "https://www.lycabettushill.com/", type: "Secondaire",
+        image: unsplash("lycabettus hill athens sunset"),
+        activity: "Monter (à pied ou funiculaire), chapelle au sommet, vue panoramique."
+      },
+    ];
+
+    // --- DONNÉES LIFESTYLE ---
+    const lifestyleData = {
+      hotels: [
+        { name: "Herodion Hotel", type: "Confort / 4*", area: "Plaka / Acropole", price: "100€-120€", desc: "Élégant, calme, proche musée.", address: "Rovertou Galli 4" },
+        { name: "Plaka Hotel", type: "Standard / 3*", area: "Plaka", price: "80€-100€", desc: "Vue toit-terrasse incroyable.", address: "Kapnikarea 7" },
+        { name: "Home and Poetry", type: "Boutique", area: "Plaka", price: "90€", desc: "Charme néoclassique.", address: "Lysikratous 10" }
+      ],
+      restaurants: [
+        { name: "Kuzina", type: "Moderne", price: "35€-50€", desc: "Vue temple Héphaïstos.", address: "Adrianou 9" },
+        { name: "To Kafeneio", type: "Taverne", price: "15€-25€", desc: "Authentique, bâtiment 400 ans.", address: "Epicharmou 1" },
+        { name: "Strofi", type: "Historique", price: "30€-45€", desc: "Vue Parthénon depuis 1975.", address: "Rovertou Galli 25" },
+        { name: "O Thanasis", type: "Street Food", price: "10€-15€", desc: "Kebab de Monastiraki.", address: "Mitropoleos 69" }
+      ],
+      activities: [
+        { name: "Hammam Baths", type: "Détente", price: "45€", desc: "Bain traditionnel (Thissio).", address: "Melidoni 1" },
+        { name: "Soirée Rebetiko", type: "Musique", price: "Repas", desc: "Blues grec en taverne.", address: "Ex: Klimataria" },
+        { name: "Cinémathèque", type: "Culture", price: "8€", desc: "Cinéma en salle historique.", address: "Ex: Danaos" }
+      ]
+    };
+
+    const photoChallenges = [
+      { id: "p1", title: "L'Imposteur", desc: "Imite la pose d'une statue (Caryatide ou Kouros).", zone: "Musée / Acropole", icon: "🗿" },
+      { id: "p2", title: "Le Chat Socratique", desc: "Trouve un chat errant et demande-lui le sens de la vie.", zone: "Agora / Plaka", icon: "🐱" },
+      { id: "p3", title: "L'Orateur", desc: "Prends une pose de discours intense face au vide.", zone: "Pnyx", icon: "📢" },
+      { id: "p4", title: "Le Gardien", desc: "Selfie épique avec le Parthénon en arrière-plan.", zone: "Acropole", icon: "🏛️" },
+      { id: "p5", title: "Le Banquet", desc: "Photo artistique de ta meilleure salade grecque ou gyros.", zone: "Taverne", icon: "🥗" },
+      { id: "p6", title: "L'Horizon", desc: "Regard mélancolique vers la mer (style Égée).", zone: "Sounion / Areopage", icon: "🌊" }
+    ];
+
+    // --- PLANNING (timeline interactive) ---
+    const tripPlan = {
+      title: "Athènes • Janvier 2026",
+      dates: { start: "2026-01-20", end: "2026-01-25", nights: 5 },
+      flights: {
+        outbound: { number: "Aegean A3 611", from: "Paris CDG (Terminal 2D)", dep: "11:55", to: "Athènes", arr: "16:00", note: "Repas chaud gratuit à bord (même en éco)." },
+        inbound:  { number: "Aegean A3 614", from: "Athènes", dep: "17:00", to: "Paris CDG", arr: "19:35", note: "Arrivée 19:35 • Didier vient vous récupérer à l'aéroport." }
+      },
+      baggage: {
+        fare: "Economy Light",
+        rule: "1 seul bagage cabine par personne (valise OU sac à dos).",
+        maxKg: 8,
+        risk: "Si sac en plus : le faire rentrer dans la valise avant l’embarquement, sinon facturation mise en soute (~60–70€)."
+      },
+      hotel: { name: "Candia Hotel 4*", area: "Proche gare Larissa / métro Metaxourghio", breakfast: "Petit-déjeuner inclus", transfers: "Transfert Aéroport ↔ Hôtel déjà payé (privatif)" },
+      fees: { name: "Climate Resilience Tax", perNight: 3.00, total: 15.00, note: "À payer à l'arrivée (3€/chambre/nuit en basse saison pour 4*)." },
+      notes: [
+        "Le 'Pass 30€' peut être insuffisant en 2026 : à vérifier sur place selon tarifs hiver/réductions."
+      ],
+      franceLogistics: [
+        "Aller : départ de Lille en TGV pour arriver à CDG entre 08:00 et 09:30.",
+        "Retour : atterrissage 19:35, récupération par Didier à l'aéroport."
+      ],
+      days: [
+        {
+          date: "2026-01-20", label: "Mar 20", title: "Départ & arrivée",
+          events: [
+            { time: "08:00–09:30", icon: "🚄", title: "Arrivée CDG (depuis Lille en TGV)", desc: "Objectif : être à CDG entre 08:00 et 09:30." },
+            { time: "T2D", icon: "📍", title: "RDV Terminal 2D", desc: "Se positionner tôt (contrôles + porte)." },
+            { time: "11:55 → 16:00", icon: "✈️", title: "Vol A3 611 (Aegean)", desc: "Paris CDG → Athènes. Repas chaud gratuit à bord." },
+            { time: "À l'arrivée", icon: "🚐", title: "Transfert privatif aéroport → hôtel", desc: "Ne pas payer taxi/métro : transfert déjà réservé et payé." },
+            { time: "Soir", icon: "🛏️", title: "Check-in • Candia Hotel 4*", desc: "Petit-déjeuner inclus (budget matin allégé)." }
+          ]
+        },
+        { date: "2026-01-21", label: "Mer 21", title: "Journée 1", events: [
+          { time: "Matin", icon: "🥐", title: "Petit-déj inclus", desc: "Profiter du buffet (pas de budget matin)." },
+          { time: "Jour", icon: "🏛️", title: "Culture (au choix)", desc: "Acropole / Musée / Agora selon envie et météo." },
+          { time: "Soir", icon: "🍽️", title: "Dîner taverne", desc: "Option : Plaka / Monastiraki." }
+        ]},
+        { date: "2026-01-22", label: "Jeu 22", title: "Journée 2", events: [
+          { time: "Jour", icon: "🧠", title: "Musées / Philosophie", desc: "Lycée d’Aristote / Musée archéologique / Benaki." },
+          { time: "Soir", icon: "🎶", title: "Option Rebetiko", desc: "Soirée musique (si vous en avez envie)." }
+        ]},
+        { date: "2026-01-23", label: "Ven 23", title: "Journée 3", events: [
+          { time: "Jour", icon: "🗺️", title: "Exploration libre", desc: "Quartiers + points secondaires + photos." }
+        ]},
+        { date: "2026-01-24", label: "Sam 24", title: "Journée 4", events: [
+          { time: "Jour", icon: "🌊", title: "Option excursion", desc: "Cap Sounion / Vouliagmeni selon énergie." }
+        ]},
+        {
+          date: "2026-01-25", label: "Dim 25", title: "Retour",
+          events: [
+            { time: "Matin", icon: "🥐", title: "Dernier petit-déj", desc: "Petit-déjeuner inclus." },
+            { time: "Avant midi", icon: "🧳", title: "Bagage cabine : check final", desc: "Economy Light : 1 seul bagage, 8 kg max." },
+            { time: "Vers aéroport", icon: "🚐", title: "Transfert hôtel → aéroport", desc: "Déjà payé/réservé (privatif)." },
+            { time: "17:00 → 19:35", icon: "✈️", title: "Vol A3 614 (Aegean)", desc: "Athènes → Paris CDG." },
+            { time: "19:35", icon: "🚗", title: "Récupération par Didier", desc: "Retour door-to-door." }
+          ]
+        }
+      ]
+    };
+
+    // --- COMPOSANT CARTE ---
+    const MapComponent = ({ places, darkMode }) => {
+      useEffect(() => {
+        const container = L.DomUtil.get('map-container');
+        if (container != null) container._leaflet_id = null;
+
+        const map = L.map('map-container').setView([37.974, 23.73], 13);
+
+        const lightTiles = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        const darkTiles  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+        L.tileLayer(darkMode ? darkTiles : lightTiles, {
+          attribution: '&copy; OSM & CartoDB'
+        }).addTo(map);
+
+        places.forEach(place => {
+          const color = place.color === 'red' ? '#dc2626'
+                       : place.color === 'purple' ? '#7c3aed'
+                       : place.color === 'emerald' ? '#10b981'
+                       : '#3b82f6';
+          const marker = L.circleMarker(place.coords, {
+            color, fillColor: color, fillOpacity: 0.85,
+            radius: place.type === 'Primaire' ? 10 : 6
+          });
+          marker.addTo(map).bindPopup(`<b>${place.name}</b><br/>${place.address}`);
+        });
+
+        return () => map.remove();
+      }, [places, darkMode]);
+
+      return <div id="map-container" className="shadow-xl border border-gray-200 dark:border-stone-700"></div>;
+    };
+
+    // --- PLANNING TAB ---
+    const PlanningTab = ({ plan }) => {
+      const [selectedIdx, setSelectedIdx] = useState(0);
+      const [checks, setChecks] = useLocalStorageState("athens_plan_checks", {});
+      const stepsRef = useRef([]);
+
+      useEffect(() => {
+        const el = stepsRef.current[selectedIdx];
+        if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      }, [selectedIdx]);
+
+      const selectedDay = plan.days[selectedIdx];
+
+      const toggleCheck = (key) => setChecks(prev => ({ ...prev, [key]: !prev[key] }));
+
+      const copySummary = async () => {
+        const lines = [
+          `${plan.title}`,
+          `Dates : ${plan.dates.start} → ${plan.dates.end} (${plan.dates.nights} nuits)`,
+          ``,
+          `Aller : ${plan.flights.outbound.number} • ${plan.flights.outbound.from} ${plan.flights.outbound.dep} → ${plan.flights.outbound.to} ${plan.flights.outbound.arr}`,
+          `Retour : ${plan.flights.inbound.number} • ${plan.flights.inbound.from} ${plan.flights.inbound.dep} → ${plan.flights.inbound.to} ${plan.flights.inbound.arr}`,
+          ``,
+          `Bagages (${plan.baggage.fare}) : ${plan.baggage.rule} • ${plan.baggage.maxKg} kg`,
+          `Transfert : ${plan.hotel.transfers}`,
+          `Taxe : ${plan.fees.name} • ${plan.fees.total.toFixed(2)}€ (total)`,
+        ];
+        try {
+          await navigator.clipboard.writeText(lines.join("\n"));
+          alert("Résumé copié dans le presse-papiers.");
+        } catch {
+          alert("Copie impossible (navigateur).");
+        }
+      };
+
+      const downloadICS = () => {
+        // ICS simple (floating times)
+        const dtstamp = new Date();
+        const stamp = `${dtstamp.getUTCFullYear()}${pad2(dtstamp.getUTCMonth()+1)}${pad2(dtstamp.getUTCDate())}T${pad2(dtstamp.getUTCHours())}${pad2(dtstamp.getUTCMinutes())}${pad2(dtstamp.getUTCSeconds())}Z`;
+
+        const mkDate = (yyyy_mm_dd) => yyyy_mm_dd.replaceAll("-", "");
+        const mkDateTime = (yyyy_mm_dd, hhmm) => {
+          const [hh, mm] = hhmm.split(":").map(Number);
+          return `${mkDate(yyyy_mm_dd)}T${pad2(hh)}${pad2(mm)}00`;
+        };
+
+        const events = [
+          {
+            uid: "athens-2026-flight-out",
+            summary: `✈️ ${plan.flights.outbound.number} • CDG → ATH`,
+            dtstart: mkDateTime(plan.dates.start, plan.flights.outbound.dep),
+            dtend: mkDateTime(plan.dates.start, plan.flights.outbound.arr),
+            desc: `${plan.flights.outbound.from} → ${plan.flights.outbound.to}\\n${plan.flights.outbound.note}`
+          },
+          {
+            uid: "athens-2026-flight-in",
+            summary: `✈️ ${plan.flights.inbound.number} • ATH → CDG`,
+            dtstart: mkDateTime(plan.dates.end, plan.flights.inbound.dep),
+            dtend: mkDateTime(plan.dates.end, plan.flights.inbound.arr),
+            desc: `${plan.flights.inbound.from} → ${plan.flights.inbound.to}\\n${plan.flights.inbound.note}`
+          },
+          {
+            uid: "athens-2026-hotel",
+            summary: `🛏️ ${plan.hotel.name} (séjour)`,
+            dtstart: mkDate(plan.dates.start),
+            dtend: mkDate(plan.dates.end),
+            allDay: true,
+            desc: `${plan.hotel.area}\\n${plan.hotel.breakfast}\\n${plan.hotel.transfers}`
+          }
         ];
 
-        // --- DONNÉES LIFESTYLE ---
-        const lifestyleData = {
-            hotels: [
-                { name: "Herodion Hotel", type: "Confort / 4*", area: "Plaka / Acropole", price: "100€-120€", desc: "Élégant, calme, proche musée.", address: "Rovertou Galli 4" },
-                { name: "Plaka Hotel", type: "Standard / 3*", area: "Plaka", price: "80€-100€", desc: "Vue toit-terrasse incroyable.", address: "Kapnikarea 7" },
-                { name: "Home and Poetry", type: "Boutique", area: "Plaka", price: "90€", desc: "Charme néoclassique.", address: "Lysikratous 10" }
-            ],
-            restaurants: [
-                { name: "Kuzina", type: "Moderne", price: "35€-50€", desc: "Vue temple Héphaïstos.", address: "Adrianou 9" },
-                { name: "To Kafeneio", type: "Taverne", price: "15€-25€", desc: "Authentique, bâtiment 400 ans.", address: "Epicharmou 1" },
-                { name: "Strofi", type: "Historique", price: "30€-45€", desc: "Vue Parthénon depuis 1975.", address: "Rovertou Galli 25" },
-                { name: "O Thanasis", type: "Street Food", price: "10€-15€", desc: "Meilleur Kebab de Monastiraki.", address: "Mitropoleos 69" }
-            ],
-            activities: [
-                { name: "Hammam Baths", type: "Détente", price: "45€", desc: "Bain traditionnel (Thissio).", address: "Melidoni 1" },
-                { name: "Soirée Rebetiko", type: "Musique", price: "Repas", desc: "Blues grec en taverne.", address: "Ex: Klimataria" },
-                { name: "Cinémathèque", type: "Culture", price: "8€", desc: "Cinéma en salle historique.", address: "Ex: Danaos" }
-            ]
-        };
+        const ics =
+`BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Athens Guide//FR
+CALSCALE:GREGORIAN
+${events.map(e => {
+  const base =
+`BEGIN:VEVENT
+UID:${e.uid}@athens-guide
+DTSTAMP:${stamp}
+SUMMARY:${e.summary}
+DESCRIPTION:${e.desc}
+`;
+  if (e.allDay) {
+    return base +
+`DTSTART;VALUE=DATE:${e.dtstart}
+DTEND;VALUE=DATE:${e.dtend}
+END:VEVENT`;
+  }
+  return base +
+`DTSTART:${e.dtstart}
+DTEND:${e.dtend}
+END:VEVENT`;
+}).join("\n")}
+END:VCALENDAR`;
 
-        const photoChallenges = [
-            { id: "p1", title: "L'Imposteur", desc: "Imite la pose d'une statue (Caryatide ou Kouros).", zone: "Musée / Acropole", icon: "🗿" },
-            { id: "p2", title: "Le Chat Socratique", desc: "Trouve un chat errant et demande-lui le sens de la vie.", zone: "Agora / Plaka", icon: "🐱" },
-            { id: "p3", title: "L'Orateur", desc: "Prends une pose de discours intense face au vide.", zone: "Pnyx", icon: "📢" },
-            { id: "p4", title: "Le Gardien", desc: "Selfie épique avec le Parthénon en arrière-plan.", zone: "Acropole", icon: "🏛️" },
-            { id: "p5", title: "Le Banquet", desc: "Photo artistique de ta meilleure salade grecque ou gyros.", zone: "Taverne", icon: "🥗" },
-            { id: "p6", title: "L'Horizon", desc: "Regard mélancolique vers la mer (style Égée).", zone: "Sounion / Areopage", icon: "🌊" }
-        ];
+        const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "athenes_planning_2026.ics";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
 
-        // --- COMPOSANT CARTE ---
-        const MapComponent = ({ places }) => {
-            useEffect(() => {
-                const container = L.DomUtil.get('map-container');
-                if(container != null) container._leaflet_id = null;
-                const map = L.map('map-container').setView([37.974, 23.73], 13);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OSM & CartoDB' }).addTo(map);
-                places.forEach(place => {
-                    let color = place.color === 'red' ? '#dc2626' : place.color === 'purple' ? '#7c3aed' : place.color === 'emerald' ? '#10b981' : '#3b82f6';
-                    const marker = L.circleMarker(place.coords, { color: color, fillColor: color, fillOpacity: 0.8, radius: place.type === 'Primaire' ? 10 : 6 });
-                    marker.addTo(map).bindPopup(`<b>${place.name}</b><br/>${place.address}`);
-                });
-                return () => map.remove();
-            }, [places]);
-            return <div id="map-container" className="shadow-xl border border-gray-300 dark:border-stone-700"></div>;
-        };
-
-        // --- COMPOSANT PRINCIPAL ---
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('zones');
-            const [userPhotos, setUserPhotos] = useState({});
-            const [darkMode, setDarkMode] = useState(false);
-
-            // Toggle Dark Mode
-            useEffect(() => {
-                if (darkMode) {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
-            }, [darkMode]);
-
-            const handlePhotoUpload = (challengeId, event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    const imageUrl = URL.createObjectURL(file);
-                    setUserPhotos(prev => ({ ...prev, [challengeId]: imageUrl }));
-                }
-            };
-
-            // Fonction pour générer le lien Google Maps
-            const getMapsLink = (place) => {
-                const query = encodeURIComponent(`${place.address} ${place.name} Athens`);
-                return `https://www.google.com/maps/search/?api=1&query=${query}`;
-            };
-
-            const groupByZone = (data) => data.reduce((acc, p) => { (acc[p.zone] = acc[p.zone] || []).push(p); return acc; }, {});
-            const groupedPlaces = groupByZone(placesData);
-            const zoneOrder = ["Acropole", "Agora", "Philosophie", "Hors Ville"];
-
-            return (
-                <div className="max-w-6xl mx-auto p-4 md:p-8 min-h-screen">
-                    
-                    {/* TOP BAR / DARK MODE */}
-                    <div className="flex justify-end mb-4">
-                        <button 
-                            onClick={() => setDarkMode(!darkMode)}
-                            className="p-2 rounded-full bg-gray-200 dark:bg-stone-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-stone-600 transition-colors flex items-center gap-2 text-sm font-bold"
-                        >
-                            {darkMode ? '☀️ Mode Jour' : '🌙 Mode Nuit'}
-                        </button>
-                    </div>
-
-                    <header className="text-center mb-10">
-                        <h1 className="text-4xl md:text-6xl text-slate-800 dark:text-slate-100 mb-2 tracking-tight">Athènes</h1>
-                        <h2 className="text-xl md:text-2xl text-slate-600 dark:text-slate-400 italic font-light font-serif">Guide Ultime Janvier 2025</h2>
-                        
-                        {/* WIDGET METEO */}
-                        <div className="mt-4 inline-flex items-center gap-2 px-4 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm border border-blue-100 dark:border-blue-800">
-                            <span>⛅ Météo Moy. Janvier :</span>
-                            <span className="font-bold">10°C - 15°C</span>
-                        </div>
-                    </header>
-
-                    {/* MENU NAVIGATION */}
-                    <nav className="flex flex-wrap justify-center gap-2 md:gap-6 mb-8 border-b border-gray-200 dark:border-stone-700 sticky top-0 bg-[#f4f1ea] dark:bg-stone-900 z-20 py-2 transition-colors duration-300">
-                        {[
-                            { id: 'zones', label: '🏛️ Lieux & Culture' },
-                            { id: 'map', label: '🗺️ Carte' },
-                            { id: 'lifestyle', label: '🍷 Vie Pratique' },
-                            { id: 'photos', label: '📸 Défi Photo' }
-                        ].map(tab => (
-                            <button 
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`px-4 py-2 rounded-full text-sm md:text-base transition-all ${activeTab === tab.id ? 'bg-[#8c2f39] text-white shadow-lg' : 'text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-stone-800'}`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </nav>
-
-                    {/* CONTENU CULTUREL */}
-                    {activeTab === 'zones' && (
-                        <div className="animate-fade-in space-y-12">
-                            {zoneOrder.map(zone => {
-                                const places = groupedPlaces[zone];
-                                const zoneColor = places[0]?.color || 'gray';
-                                const colorMap = { red: 'red', blue: 'blue', purple: 'purple', emerald: 'emerald' };
-                                const c = colorMap[zoneColor];
-                                
-                                // Séparer les lieux primaires et secondaires
-                                const primaries = places.filter(p => p.type === 'Primaire');
-                                const secondaries = places.filter(p => p.type === 'Secondaire');
-
-                                return (
-                                    <section key={zone}>
-                                        <h3 className={`text-2xl font-bold serif-title mb-6 pb-2 border-b-2 border-${c}-600 text-${c}-800 dark:text-${c}-400`}>
-                                            {zone === "Acropole" ? "Le Sacré" : zone === "Agora" ? "La Cité" : zone === "Philosophie" ? "La Sagesse" : "La Nature"}
-                                        </h3>
-                                        
-                                        {/* INCONTOURNABLES */}
-                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                                            {primaries.map(p => (
-                                                <PlaceCard key={p.id} p={p} c={c} getMapsLink={getMapsLink} />
-                                            ))}
-                                        </div>
-
-                                        {/* SECONDAIRES */}
-                                        {secondaries.length > 0 && (
-                                            <>
-                                                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-4 mt-8 flex items-center">
-                                                    <span className="w-4 h-px bg-gray-400 mr-2"></span>
-                                                    Iconiques Secondaires
-                                                    <span className="w-full h-px bg-gray-200 dark:bg-stone-700 ml-2"></span>
-                                                </h4>
-                                                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                    {secondaries.map(p => (
-                                                        <PlaceCard key={p.id} p={p} c={c} getMapsLink={getMapsLink} isSecondary={true} />
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
-                                    </section>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* CONTENU CARTE */}
-                    {activeTab === 'map' && (
-                        <div className="bg-white dark:bg-stone-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-stone-700">
-                            <MapComponent places={placesData} />
-                            <p className="text-center text-gray-500 text-sm mt-4">Carte centrée sur les sites majeurs (Grands points) et secondaires (Petits points).</p>
-                        </div>
-                    )}
-
-                    {/* CONTENU LIFESTYLE */}
-                    {activeTab === 'lifestyle' && (
-                        <div className="grid gap-12 animate-fade-in">
-                            <section>
-                                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🛏️ Hôtels (Janvier)</h3>
-                                <div className="grid md:grid-cols-3 gap-6">
-                                    {lifestyleData.hotels.map((h, i) => (
-                                        <div key={i} className="bg-white dark:bg-stone-800 p-6 rounded-lg border border-gray-100 dark:border-stone-700 shadow-sm">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-lg text-slate-900 dark:text-slate-100">{h.name}</h4>
-                                                <span className="text-xs bg-gray-100 dark:bg-stone-700 dark:text-gray-300 px-2 py-1 rounded">{h.type}</span>
-                                            </div>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{h.desc}</p>
-                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{h.price}</p>
-                                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address + ' ' + h.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">📍 {h.address}</a>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                            <section>
-                                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🍽️ Restaurants & Tavernes</h3>
-                                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                    {lifestyleData.restaurants.map((r, i) => (
-                                        <div key={i} className="bg-white dark:bg-stone-800 p-6 rounded-lg border border-gray-100 dark:border-stone-700 shadow-sm">
-                                            <h4 className="font-bold text-lg mb-1 text-slate-900 dark:text-slate-100">{r.name}</h4>
-                                            <p className="text-xs text-amber-700 dark:text-amber-500 font-bold mb-2">{r.type}</p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{r.desc}</p>
-                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{r.price}</p>
-                                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address + ' ' + r.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">{r.address}</a>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                            <section>
-                                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🎭 Activités & Détente</h3>
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    {lifestyleData.activities.map((a, i) => (
-                                        <div key={i} className="bg-stone-50 dark:bg-stone-800 p-6 rounded-lg border-l-4 border-slate-400 dark:border-slate-600">
-                                            <div className="flex justify-between mb-1">
-                                                <h4 className="font-bold text-lg text-slate-900 dark:text-slate-100">{a.name}</h4>
-                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{a.price}</span>
-                                            </div>
-                                            <p className="text-sm text-gray-700 dark:text-gray-400">{a.desc}</p>
-                                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a.address + ' ' + a.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">📍 {a.address}</a>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                        </div>
-                    )}
-
-                    {/* CONTENU DÉFI PHOTO */}
-                    {activeTab === 'photos' && (
-                        <div className="animate-fade-in">
-                            <div className="text-center mb-8 bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                                <h3 className="text-2xl font-bold serif-title text-yellow-800 dark:text-yellow-500 mb-2">📸 Le Bingo de l'Odyssée</h3>
-                                <p className="text-gray-700 dark:text-gray-300">6 Missions photos à accomplir pendant le voyage.</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
-                                {photoChallenges.map(chal => (
-                                    <label key={chal.id} className="cursor-pointer group relative">
-                                        <input 
-                                            type="file" 
-                                            accept="image/*" 
-                                            className="file-input"
-                                            onChange={(e) => handlePhotoUpload(chal.id, e)}
-                                        />
-                                        <div className={`photo-card rounded-xl border-4 shadow-md flex flex-col items-center justify-center p-4 text-center overflow-hidden relative bg-white dark:bg-stone-800 ${userPhotos[chal.id] ? 'border-green-500' : 'border-dashed border-gray-300 dark:border-stone-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-stone-700'}`}>
-                                            
-                                            {userPhotos[chal.id] ? (
-                                                <>
-                                                    <img src={userPhotos[chal.id]} className="absolute inset-0 w-full h-full object-cover opacity-90" />
-                                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-xs font-bold">
-                                                        ✅ {chal.title}
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="text-4xl mb-2">{chal.icon}</div>
-                                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{chal.title}</h4>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">{chal.desc}</p>
-                                                    <div className="mt-4 px-3 py-1 bg-gray-100 dark:bg-stone-700 rounded-full text-xs text-gray-400 group-hover:bg-blue-200 group-hover:text-blue-800 transition-colors">
-                                                        Clique pour ajouter
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <footer className="mt-16 text-center text-gray-400 text-sm pb-8 border-t border-gray-200 dark:border-stone-700 pt-8 transition-colors">
-                        Guide Athènes Hiver 2025 • Mythe, Raison & Souvenirs
-                    </footer>
-                </div>
-            );
-        };
-
-        // --- SUB-COMPONENT: PlaceCard ---
-        const PlaceCard = ({ p, c, getMapsLink, isSecondary = false }) => (
-            <div className={`bg-white dark:bg-stone-800 rounded-lg shadow-sm border border-gray-100 dark:border-stone-700 overflow-hidden flex flex-col transition-colors duration-300 ${isSecondary ? 'opacity-90' : ''}`}>
-                
-                {/* IMAGE DU LIEU */}
-                {p.image && (
-                    <div className="w-full h-40 overflow-hidden relative">
-                        <img 
-                            src={p.image} 
-                            alt={p.name} 
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className={`absolute bottom-0 left-0 w-full h-1 bg-${c}-500`}></div>
-                    </div>
-                )}
-                
-                <div className="p-6 flex-grow flex flex-col">
-                    <div className="flex justify-between items-start mb-2">
-                        <h4 className={`font-bold text-slate-900 dark:text-slate-100 ${isSecondary ? 'text-lg' : 'text-xl'}`}>{p.name}</h4>
-                        {p.type === 'Secondaire' && <span className="text-[10px] bg-gray-100 dark:bg-stone-700 text-gray-500 px-2 py-0.5 rounded">2nd</span>}
-                    </div>
-                    
-                    {/* Liens : Maps & Web */}
-                    <div className="flex gap-3 mb-4 text-sm">
-                        <a href={getMapsLink(p)} target="_blank" className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                            {p.address}
-                        </a>
-                        <a href={p.website} target="_blank" className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
-                            Site Web
-                        </a>
-                    </div>
-
-                    <div className="bg-gray-50 dark:bg-stone-700 p-3 rounded text-sm mb-4 transition-colors">
-                        <div className="font-semibold text-gray-800 dark:text-gray-200">🕒 {p.hours}</div>
-                        <div className="text-gray-600 dark:text-gray-400">🎟️ {p.price}</div>
-                    </div>
-
-                    {/* SECTION ACTIVITÉS */}
-                    {p.activity && (
-                        <div className="mb-4">
-                            <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 block">À faire sur place :</span>
-                            <p className="text-sm text-gray-700 dark:text-gray-300 italic">
-                                "{p.activity}"
-                            </p>
-                        </div>
-                    )}
-                    
-                    <div className="space-y-2 text-sm mt-auto border-t border-gray-100 dark:border-stone-700 pt-3">
-                        <div className="text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30 p-2 rounded transition-colors">⚡ <b>Mythe:</b> {p.myth}</div>
-                        <div className="text-sky-800 dark:text-sky-200 bg-sky-50 dark:bg-sky-900/30 p-2 rounded transition-colors">🧠 <b>Philo:</b> {p.philo}</div>
-                    </div>
-                </div>
+      return (
+        <div className="animate-fade-in">
+          {/* Quick cards */}
+          <div className="grid md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-5">
+              <div className="font-bold text-slate-900 dark:text-slate-100 mb-1">📅 Dates</div>
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                {plan.dates.start} → {plan.dates.end} <span className="text-gray-500">({plan.dates.nights} nuits)</span>
+              </div>
+              <div className="text-xs text-gray-500 mt-2">{plan.hotel.name} • {plan.hotel.area}</div>
             </div>
-        );
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+            <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-5">
+              <div className="font-bold text-slate-900 dark:text-slate-100 mb-2">✈️ Vols</div>
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                <div><b>Aller</b> {plan.flights.outbound.dep} → {plan.flights.outbound.arr}</div>
+                <div className="text-xs text-gray-500">{plan.flights.outbound.number} • {plan.flights.outbound.from}</div>
+              </div>
+              <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                <div><b>Retour</b> {plan.flights.inbound.dep} → {plan.flights.inbound.arr}</div>
+                <div className="text-xs text-gray-500">{plan.flights.inbound.number}</div>
+              </div>
+            </div>
+
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5">
+              <div className="font-bold text-red-900 dark:text-red-200 mb-2">⚠️ Bagages (zone sensible)</div>
+              <div className="text-sm text-red-900/90 dark:text-red-200/90">
+                {plan.baggage.rule} <b>({plan.baggage.maxKg} kg)</b>
+              </div>
+              <div className="text-xs text-red-900/70 dark:text-red-200/70 mt-2">{plan.baggage.risk}</div>
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-5">
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+              <div>
+                <div className="text-xl font-bold serif-title text-slate-900 dark:text-slate-100">🗓️ Bande chronologique</div>
+                <div className="text-sm text-gray-500">Clique un jour pour afficher les étapes.</div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={downloadICS} className="px-3 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition">
+                  Télécharger .ics
+                </button>
+                <button onClick={copySummary} className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-stone-700 hover:bg-gray-200 dark:hover:bg-stone-600 transition">
+                  Copier résumé
+                </button>
+              </div>
+            </div>
+
+            <div className="timeline-wrap overflow-x-auto pb-3">
+              <div className="min-w-[820px] flex items-center gap-5 relative px-2">
+                <div className="absolute left-2 right-2 h-1 bg-gray-200 dark:bg-stone-700 top-1/2 -translate-y-1/2 rounded"></div>
+                {plan.days.map((d, idx) => {
+                  const active = idx === selectedIdx;
+                  return (
+                    <button
+                      key={d.date}
+                      ref={el => stepsRef.current[idx] = el}
+                      onClick={() => setSelectedIdx(idx)}
+                      className={"timeline-step relative z-10 flex flex-col items-center min-w-[120px] p-2 rounded-xl transition " + (active ? "animate-pop" : "")}
+                      title={d.date}
+                    >
+                      <div className={"w-10 h-10 rounded-full grid place-items-center border-2 transition " + (active
+                        ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white"
+                        : "bg-white dark:bg-stone-800 text-slate-700 dark:text-slate-200 border-gray-300 dark:border-stone-600"
+                      )}>
+                        {idx+1}
+                      </div>
+                      <div className={"mt-2 text-sm font-bold " + (active ? "text-slate-900 dark:text-white" : "text-gray-600 dark:text-gray-300")}>{d.label}</div>
+                      <div className={"text-xs text-center " + (active ? "text-gray-600 dark:text-gray-300" : "text-gray-400")}>{d.title}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Day details */}
+            <div className="mt-6 grid lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2">
+                <div className="flex items-baseline justify-between mb-3">
+                  <div>
+                    <div className="text-lg font-bold text-slate-900 dark:text-slate-100">{selectedDay.title}</div>
+                    <div className="text-xs text-gray-500">{selectedDay.date}</div>
+                  </div>
+                  <div className="text-xs text-gray-500">Événements : {selectedDay.events.length}</div>
+                </div>
+
+                <div className="space-y-3">
+                  {selectedDay.events.map((ev, i) => (
+                    <div key={i} className="bg-stone-50 dark:bg-stone-900/40 border border-gray-200/70 dark:border-stone-700 rounded-xl p-4">
+                      <div className="flex gap-3">
+                        <div className="text-2xl w-10 text-center">{ev.icon}</div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-bold text-slate-900 dark:text-slate-100">{ev.title}</div>
+                            <div className="text-xs text-gray-500">{ev.time}</div>
+                          </div>
+                          <div className="text-sm text-gray-700 dark:text-gray-300 mt-1">{ev.desc}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sidebar: checklists & costs */}
+              <div className="space-y-4">
+                <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-4">
+                  <div className="font-bold text-slate-900 dark:text-slate-100 mb-2">✅ Checklist rapide</div>
+                  {[
+                    ["tgv", "Billets TGV Lille → CDG OK"],
+                    ["id", "Pièces d’identité / docs vol"],
+                    ["baggage", "Bagage cabine : 1 seul / personne"],
+                    ["weight", "Poids cabine ≤ 8 kg"],
+                    ["transfer", "Transfert privatif confirmé (pas de taxi)"],
+                    ["tax", "Prévoir 15€ taxe de séjour (total)"],
+                  ].map(([k, label]) => (
+                    <label key={k} className="flex items-center gap-2 py-1 cursor-pointer">
+                      <input type="checkbox" checked={!!checks[k]} onChange={() => toggleCheck(k)} />
+                      <span className={"text-sm " + (checks[k] ? "line-through text-gray-400" : "text-gray-700 dark:text-gray-300")}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-4">
+                  <div className="font-bold text-slate-900 dark:text-slate-100 mb-2">💶 Frais & points à retenir</div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <div className="mb-2">
+                      <b>{plan.fees.name}</b> : {plan.fees.perNight.toFixed(2)}€ / nuit / chambre → <b>{plan.fees.total.toFixed(2)}€</b> total.
+                      <div className="text-xs text-gray-500 mt-1">{plan.fees.note}</div>
+                    </div>
+                    <div className="text-xs text-gray-500">Note : {plan.notes[0]}</div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-4">
+                  <div className="font-bold text-slate-900 dark:text-slate-100 mb-2">🚪 Door-to-door</div>
+                  <ul className="text-sm text-gray-700 dark:text-gray-300 list-disc pl-5 space-y-1">
+                    {plan.franceLogistics.map((x, i) => <li key={i}>{x}</li>)}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- SUB-COMPONENT: PlaceCard ---
+    const PlaceCard = ({ p, c, getMapsLink, isSecondary = false }) => {
+      const ui = ZONE_UI[c] || ZONE_UI.blue;
+      return (
+        <div className={"bg-white dark:bg-stone-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700 overflow-hidden flex flex-col transition-colors duration-300 " + (isSecondary ? "opacity-95" : "")}>
+          {p.image && (
+            <div className="w-full h-44 overflow-hidden relative">
+              <img src={p.image} alt={p.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"/>
+              <div className={"absolute bottom-0 left-0 w-full h-1 " + ui.bar}></div>
+            </div>
+          )}
+
+          <div className="p-5 flex-grow flex flex-col">
+            <div className="flex justify-between items-start gap-2 mb-2">
+              <h4 className={"font-bold text-slate-900 dark:text-slate-100 " + (isSecondary ? "text-lg" : "text-xl")}>{p.name}</h4>
+              {p.type === 'Secondaire' && (
+                <span className="text-[10px] bg-gray-100 dark:bg-stone-700 text-gray-500 px-2 py-0.5 rounded">2nd</span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-3 mb-4 text-sm">
+              <a href={getMapsLink(p)} target="_blank" className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
+                📍 {p.address}
+              </a>
+              <a href={p.website} target="_blank" className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                🌐 Site Web
+              </a>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-stone-700 p-3 rounded-lg text-sm mb-4 transition-colors">
+              <div className="font-semibold text-gray-800 dark:text-gray-200">🕒 {p.hours}</div>
+              <div className="text-gray-600 dark:text-gray-300">🎟️ {p.price}</div>
+            </div>
+
+            {p.activity && (
+              <div className="mb-4">
+                <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 block">À faire sur place :</span>
+                <p className="text-sm text-gray-700 dark:text-gray-200 italic">“{p.activity}”</p>
+              </div>
+            )}
+
+            <div className="space-y-2 text-sm mt-auto border-t border-gray-100 dark:border-stone-700 pt-3">
+              <div className={"p-2 rounded-lg " + ui.chip}>⚡ <b>Mythe:</b> {p.myth}</div>
+              <div className="text-sky-800 dark:text-sky-200 bg-sky-50 dark:bg-sky-900/30 p-2 rounded-lg transition-colors">🧠 <b>Philo:</b> {p.philo}</div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- COMPOSANT PRINCIPAL ---
+    const App = () => {
+      const [activeTab, setActiveTab] = useLocalStorageState('athens_active_tab', 'zones');
+      const [userPhotos, setUserPhotos] = useLocalStorageState('athens_user_photos', {});
+      const [darkMode, setDarkMode] = useLocalStorageState('athens_dark', false);
+
+      const [query, setQuery] = useState("");
+      const [showSecondaries, setShowSecondaries] = useState(true);
+
+      useEffect(() => {
+        if (darkMode) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+      }, [darkMode]);
+
+      const handlePhotoUpload = (challengeId, event) => {
+        const file = event.target.files[0];
+        if (file) {
+          const imageUrl = URL.createObjectURL(file);
+          setUserPhotos(prev => ({ ...prev, [challengeId]: imageUrl }));
+        }
+      };
+
+      const clearPhoto = (challengeId) => {
+        setUserPhotos(prev => {
+          const copy = { ...prev };
+          delete copy[challengeId];
+          return copy;
+        });
+      };
+
+      const getMapsLink = (place) => {
+        const query = encodeURIComponent(`${place.address} ${place.name} Athens`);
+        return `https://www.google.com/maps/search/?api=1&query=${query}`;
+      };
+
+      const groupByZone = (data) => data.reduce((acc, p) => { (acc[p.zone] = acc[p.zone] || []).push(p); return acc; }, {});
+      const zoneOrder = ["Acropole", "Agora", "Philosophie", "Hors Ville"];
+
+      const filteredPlaces = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        return placesData.filter(p => {
+          const okText = !q || (p.name + " " + p.zone + " " + p.address).toLowerCase().includes(q);
+          const okType = showSecondaries ? true : p.type === "Primaire";
+          return okText && okType;
+        });
+      }, [query, showSecondaries]);
+
+      const groupedPlaces = useMemo(() => groupByZone(filteredPlaces), [filteredPlaces]);
+
+      const heroUrl = useMemo(() => unsplash("acropolis athens sunrise"), []);
+
+      return (
+        <div className="max-w-6xl mx-auto p-4 md:p-8 min-h-screen">
+          {/* TOP BAR */}
+          <div className="flex justify-between items-center gap-3 mb-4">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Guide • Mythe, raison & souvenirs
+            </div>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-full bg-gray-200 dark:bg-stone-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-stone-600 transition-colors flex items-center gap-2 text-sm font-bold"
+            >
+              {darkMode ? '☀️ Mode Jour' : '🌙 Mode Nuit'}
+            </button>
+          </div>
+
+          {/* HERO */}
+          <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-stone-700 shadow-sm mb-8">
+            <div className="h-52 md:h-64 bg-cover bg-center relative" style={{ backgroundImage: `url(${heroUrl})` }}>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/10"></div>
+              <div className="absolute bottom-0 left-0 right-0 p-5 md:p-7">
+                <h1 className="text-4xl md:text-6xl text-white mb-1 tracking-tight">Athènes</h1>
+                <h2 className="text-lg md:text-2xl text-white/85 italic font-light font-serif">Guide Ultime • Hiver</h2>
+                <div className="mt-3 inline-flex items-center gap-2 px-4 py-1 bg-white/15 text-white rounded-full text-sm border border-white/20">
+                  <span>⛅ Météo Moy. Janvier :</span>
+                  <span className="font-bold">10°C - 15°C</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Infos clés */}
+            <div className="bg-white dark:bg-stone-800 p-4 md:p-5 grid md:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-gray-200 dark:border-stone-700 p-4">
+                <div className="text-xs text-gray-500 mb-1">📅 Voyage</div>
+                <div className="font-bold text-slate-900 dark:text-slate-100">{tripPlan.dates.start} → {tripPlan.dates.end}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">{tripPlan.dates.nights} nuits • {tripPlan.hotel.name}</div>
+              </div>
+              <div className="rounded-xl border border-gray-200 dark:border-stone-700 p-4">
+                <div className="text-xs text-gray-500 mb-1">✈️ Aller</div>
+                <div className="font-bold text-slate-900 dark:text-slate-100">{tripPlan.flights.outbound.dep} → {tripPlan.flights.outbound.arr}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">{tripPlan.flights.outbound.number} • {tripPlan.flights.outbound.from}</div>
+              </div>
+              <div className="rounded-xl border border-gray-200 dark:border-stone-700 p-4">
+                <div className="text-xs text-gray-500 mb-1">🚐 Transfert</div>
+                <div className="font-bold text-slate-900 dark:text-slate-100">Déjà payé</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">Aéroport ↔ Hôtel (privatif)</div>
+              </div>
+            </div>
+          </div>
+
+          {/* MENU NAVIGATION */}
+          <nav className="flex flex-wrap justify-center gap-2 md:gap-6 mb-8 border-b border-gray-200 dark:border-stone-700 sticky top-0 bg-[#f4f1ea] dark:bg-stone-900 z-20 py-2 transition-colors duration-300">
+            {[
+              { id: 'zones', label: '🏛️ Lieux & Culture' },
+              { id: 'planning', label: '🗓️ Planning' },
+              { id: 'map', label: '🗺️ Carte' },
+              { id: 'lifestyle', label: '🍷 Vie Pratique' },
+              { id: 'photos', label: '📸 Défi Photo' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-full text-sm md:text-base transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-[#8c2f39] text-white shadow-lg'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-stone-800'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* ONGLET ZONES */}
+          {activeTab === 'zones' && (
+            <div className="animate-fade-in space-y-8">
+              {/* Filter bar */}
+              <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                <div className="flex-1">
+                  <div className="text-xs text-gray-500 mb-1">Recherche</div>
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Ex: Acropole, Agora, musée, Plaka..."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 select-none">
+                  <input type="checkbox" checked={showSecondaries} onChange={() => setShowSecondaries(v => !v)} />
+                  Afficher les secondaires
+                </label>
+              </div>
+
+              {zoneOrder.map(zone => {
+                const places = groupedPlaces[zone] || [];
+                if (!places.length) return null;
+
+                const zoneColor = places[0]?.color || 'blue';
+                const colorMap = { red: 'red', blue: 'blue', purple: 'purple', emerald: 'emerald' };
+                const c = colorMap[zoneColor] || 'blue';
+                const ui = ZONE_UI[c] || ZONE_UI.blue;
+
+                const primaries = places.filter(p => p.type === 'Primaire');
+                const secondaries = places.filter(p => p.type === 'Secondaire');
+
+                return (
+                  <section key={zone}>
+                    <h3 className={`text-2xl font-bold serif-title mb-5 pb-2 border-b-2 ${ui.heading}`}>
+                      {zone === "Acropole" ? "Le Sacré" : zone === "Agora" ? "La Cité" : zone === "Philosophie" ? "La Sagesse" : "La Nature"}
+                    </h3>
+
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                      {primaries.map(p => (
+                        <PlaceCard key={p.id} p={p} c={c} getMapsLink={getMapsLink} />
+                      ))}
+                    </div>
+
+                    {secondaries.length > 0 && (
+                      <>
+                        <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-4 mt-8 flex items-center">
+                          <span className="w-4 h-px bg-gray-400 mr-2"></span>
+                          Iconiques Secondaires
+                          <span className="w-full h-px bg-gray-200 dark:bg-stone-700 ml-2"></span>
+                        </h4>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {secondaries.map(p => (
+                            <PlaceCard key={p.id} p={p} c={c} getMapsLink={getMapsLink} isSecondary={true} />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ONGLET PLANNING */}
+          {activeTab === 'planning' && (
+            <PlanningTab plan={tripPlan} />
+          )}
+
+          {/* ONGLET CARTE */}
+          {activeTab === 'map' && (
+            <div className="animate-fade-in bg-white dark:bg-stone-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-stone-700">
+              <MapComponent places={placesData} darkMode={darkMode} />
+              <p className="text-center text-gray-500 text-sm mt-4">
+                Carte : sites majeurs (grands points) et secondaires (petits points).
+              </p>
+            </div>
+          )}
+
+          {/* ONGLET LIFESTYLE */}
+          {activeTab === 'lifestyle' && (
+            <div className="grid gap-12 animate-fade-in">
+              <section>
+                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🛏️ Hôtels (Janvier)</h3>
+                <div className="grid md:grid-cols-3 gap-6">
+                  {lifestyleData.hotels.map((h, i) => (
+                    <div key={i} className="bg-white dark:bg-stone-800 p-6 rounded-lg border border-gray-100 dark:border-stone-700 shadow-sm">
+                      <div className="flex justify-between items-start mb-2 gap-2">
+                        <h4 className="font-bold text-lg text-slate-900 dark:text-slate-100">{h.name}</h4>
+                        <span className="text-xs bg-gray-100 dark:bg-stone-700 dark:text-gray-300 px-2 py-1 rounded">{h.type}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{h.desc}</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{h.price}</p>
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address + ' ' + h.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">📍 {h.address}</a>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🍽️ Restaurants & Tavernes</h3>
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {lifestyleData.restaurants.map((r, i) => (
+                    <div key={i} className="bg-white dark:bg-stone-800 p-6 rounded-lg border border-gray-100 dark:border-stone-700 shadow-sm">
+                      <h4 className="font-bold text-lg mb-1 text-slate-900 dark:text-slate-100">{r.name}</h4>
+                      <p className="text-xs text-amber-700 dark:text-amber-500 font-bold mb-2">{r.type}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{r.desc}</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{r.price}</p>
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address + ' ' + r.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">{r.address}</a>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🎭 Activités & Détente</h3>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {lifestyleData.activities.map((a, i) => (
+                    <div key={i} className="bg-stone-50 dark:bg-stone-800 p-6 rounded-lg border-l-4 border-slate-400 dark:border-slate-600">
+                      <div className="flex justify-between mb-1 gap-2">
+                        <h4 className="font-bold text-lg text-slate-900 dark:text-slate-100">{a.name}</h4>
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{a.price}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-400">{a.desc}</p>
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a.address + ' ' + a.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">📍 {a.address}</a>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* ONGLET PHOTO */}
+          {activeTab === 'photos' && (
+            <div className="animate-fade-in">
+              <div className="text-center mb-8 bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <h3 className="text-2xl font-bold serif-title text-yellow-800 dark:text-yellow-500 mb-2">📸 Le Bingo de l'Odyssée</h3>
+                <p className="text-gray-700 dark:text-gray-300">6 Missions photos à accomplir pendant le voyage.</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
+                {photoChallenges.map(chal => (
+                  <div key={chal.id} className="relative">
+                    <label className="cursor-pointer group block">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="file-input"
+                        onChange={(e) => handlePhotoUpload(chal.id, e)}
+                      />
+                      <div className={`photo-card rounded-xl border-4 shadow-md flex flex-col items-center justify-center p-4 text-center overflow-hidden relative bg-white dark:bg-stone-800 ${
+                        userPhotos[chal.id]
+                          ? 'border-green-500'
+                          : 'border-dashed border-gray-300 dark:border-stone-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-stone-700'
+                      }`}>
+
+                        {userPhotos[chal.id] ? (
+                          <>
+                            <img src={userPhotos[chal.id]} className="absolute inset-0 w-full h-full object-cover opacity-90" />
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-xs font-bold">
+                              ✅ {chal.title}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-4xl mb-2">{chal.icon}</div>
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{chal.title}</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">{chal.desc}</p>
+                            <div className="mt-4 px-3 py-1 bg-gray-100 dark:bg-stone-700 rounded-full text-xs text-gray-400 group-hover:bg-blue-200 group-hover:text-blue-800 transition-colors">
+                              Clique pour ajouter
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </label>
+
+                    {userPhotos[chal.id] && (
+                      <button
+                        onClick={() => clearPhoto(chal.id)}
+                        className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded hover:bg-black/80"
+                        title="Supprimer la photo"
+                      >
+                        ✖
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <footer className="mt-16 text-center text-gray-400 text-sm pb-8 border-t border-gray-200 dark:border-stone-700 pt-8 transition-colors">
+            Guide Athènes • Dark mode • Planning • Photos • Carte
+          </footer>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
