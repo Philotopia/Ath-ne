@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "title": "Athènes — Janvier 2026",
+    "start": "2026-01-20T00:00:00+01:00",
+    "end": "2026-01-25T23:59:59+02:00"
+  },
+  "essentials": {
+    "dates": "Du mardi 20 janvier au dimanche 25 janvier 2026 (5 nuits sur place).",
+    "flights": [
+      "Vol Aller (Aegean A3 611) : Départ 11:55 de Paris CDG (Terminal 2D) → Arrivée 16:00 à Athènes.",
+      "Vol Retour (Aegean A3 614) : Départ 17:00 d'Athènes → Arrivée 19:35 à Paris CDG.",
+      "Service à bord : Aegean sert un repas chaud gratuit (même en éco)."
+    ],
+    "baggage": [
+      "Tarif : Economy Light.",
+      "Règle : 1 seul bagage cabine par personne (valise OU sac à dos).",
+      "Poids max : 8 kg strict.",
+      "Risque : si sac en plus, le faire rentrer dans la valise avant l’embarquement, sinon mise en soute au prix fort (~60–70€)."
+    ],
+    "hotel": [
+      "Hôtel : Candia Hotel 4* (proche gare Larissa / métro Metaxourghio).",
+      "Petit-déjeuner inclus."
+    ],
+    "transfers": [
+      "Transfert Aéroport ↔ Hôtel déjà payé et réservé (privatif).",
+      "Ne pas payer taxi ou métro à l'arrivée."
+    ],
+    "money": [
+      "Taxe de séjour (Climate Resilience Tax) : 3,00 € par chambre et par nuit (4* en basse saison).",
+      "Total à payer à l'arrivée : 15,00 € (5 nuits).",
+      "Musées : le 'Pass 30€' peut être insuffisant en 2026 (tarifs à vérifier sur place)."
+    ],
+    "doorToDoor": [
+      "Aller : départ de Lille en TGV pour arriver à CDG entre 08:00 et 09:30.",
+      "Retour : atterrissage 19:35. Didier vient vous récupérer à l'aéroport."
+    ]
+  },
+  "lanes": [
+    {
+      "id": "transport",
+      "label": "Transport"
+    },
+    {
+      "id": "logement",
+      "label": "Logement"
+    },
+    {
+      "id": "visites",
+      "label": "Visites"
+    },
+    {
+      "id": "notes",
+      "label": "Notes"
+    }
+  ],
+  "events": [
+    {
+      "id": "e_train_out",
+      "lane": "transport",
+      "kind": "train",
+      "title": "TGV Lille → Paris CDG",
+      "start": "2026-01-20T06:30:00+01:00",
+      "end": "2026-01-20T09:00:00+01:00",
+      "details": "Objectif : arrivée CDG 08:00–09:30."
+    },
+    {
+      "id": "e_flight_out",
+      "lane": "transport",
+      "kind": "flight",
+      "title": "Vol Aegean A3 611 (Aller)",
+      "start": "2026-01-20T11:55:00+01:00",
+      "end": "2026-01-20T16:00:00+02:00",
+      "details": "RDV Terminal 2D. Repas chaud gratuit à bord."
+    },
+    {
+      "id": "e_transfer_in",
+      "lane": "transport",
+      "kind": "transfer",
+      "title": "Transfert aéroport → hôtel (déjà réservé)",
+      "start": "2026-01-20T16:30:00+02:00",
+      "end": "2026-01-20T17:15:00+02:00",
+      "details": "Ne pas payer taxi/métro : transfert privatif déjà payé."
+    },
+    {
+      "id": "e_hotel",
+      "lane": "logement",
+      "kind": "hotel",
+      "title": "Candia Hotel 4* — Séjour",
+      "start": "2026-01-20T17:30:00+02:00",
+      "end": "2026-01-25T10:30:00+02:00",
+      "details": "Petit-déjeuner inclus. Taxe de séjour à payer à l’arrivée."
+    },
+    {
+      "id": "e_note_baggage",
+      "lane": "notes",
+      "kind": "note",
+      "title": "Bagage cabine : 1 seul, 8 kg max",
+      "start": "2026-01-20T00:00:00+01:00",
+      "end": "2026-01-25T23:59:59+02:00",
+      "details": "Economy Light : valise OU sac. Risque de facturation ~60–70€ si deuxième bagage."
+    },
+    {
+      "id": "e_transfer_out",
+      "lane": "transport",
+      "kind": "transfer",
+      "title": "Transfert hôtel → aéroport (déjà réservé)",
+      "start": "2026-01-25T14:30:00+02:00",
+      "end": "2026-01-25T15:15:00+02:00",
+      "details": "Prévoir marge bagage 8kg strict."
+    },
+    {
+      "id": "e_flight_in",
+      "lane": "transport",
+      "kind": "flight",
+      "title": "Vol Aegean A3 614 (Retour)",
+      "start": "2026-01-25T17:00:00+02:00",
+      "end": "2026-01-25T19:35:00+01:00",
+      "details": "Arrivée CDG 19:35. Pickup par Didier."
+    }
+  ]
+}
