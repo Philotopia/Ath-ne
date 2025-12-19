@@ -3,16 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Athènes : Guide Ultime</title>
+  <title>Athènes — Guide</title>
 
-  <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-  <!-- Babel (JSX in browser) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -21,15 +16,17 @@
     }
   </script>
 
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap');
-    body { font-family: 'Lato', sans-serif; transition: background-color .3s, color .3s; }
+    body { font-family: 'Lato', sans-serif; transition: background-color .25s, color .25s; }
     h1, h2, h3, .serif-title { font-family: 'Cinzel', serif; }
-    #map-container { height: 520px; width: 100%; z-index: 10; border-radius: .75rem; }
+    #map-container { height: 520px; width: 100%; border-radius: .75rem; }
+
+    @keyframes fadeIn { from {opacity:0; transform: translateY(6px)} to {opacity:1; transform: translateY(0)} }
+    .animate-fade-in { animation: fadeIn .24s ease both; }
 
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -37,30 +34,15 @@
     .dark ::-webkit-scrollbar-track { background: #2d2d2d; }
     .dark ::-webkit-scrollbar-thumb { background: #555; }
 
-    @keyframes fadeIn { from {opacity:0; transform: translateY(6px)} to {opacity:1; transform: translateY(0)} }
-    .animate-fade-in { animation: fadeIn .28s ease both; }
-
-    /* Timeline */
-    .timeline-wrap { overflow: hidden; border-radius: 12px; }
-    .timeline-viewport { overflow: auto; cursor: grab; user-select: none; }
-    .timeline-viewport:active { cursor: grabbing; }
-    .timeline-canvas { position: relative; height: 260px; min-height: 260px; }
-    .timeline-gridline { position: absolute; top: 0; bottom: 0; width: 1px; opacity: 0.12; }
-    .timeline-label { position: absolute; top: 8px; transform: translateX(-50%); font-size: 11px; opacity: 0.75; white-space: nowrap; }
-    .timeline-lane-label { position:absolute; left: 10px; font-size: 12px; opacity: 0.8; }
-    .timeline-event {
-      position: absolute;
-      height: 42px;
-      border-radius: 10px;
-      padding: 8px 10px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.10);
-      border: 1px solid rgba(255,255,255,0.35);
+    .img-skeleton {
+      background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+      background-size: 200% 100%;
+      animation: shimmer 1.1s infinite;
     }
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; display:flex; align-items:center; justify-content:center; padding: 16px; }
-    .modal-card { width: min(860px, 100%); max-height: min(85vh, 900px); overflow:auto; border-radius: 14px; }
+    .dark .img-skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
   </style>
 </head>
 
@@ -68,188 +50,142 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useEffect, useMemo, useRef, useState } = React;
+    const { useEffect, useMemo, useState } = React;
 
-    // ---------- localStorage state ----------
     function useLocalStorageState(key, initialValue) {
       const [value, setValue] = useState(() => {
-        try {
-          const raw = localStorage.getItem(key);
-          return raw ? JSON.parse(raw) : initialValue;
-        } catch {
-          return initialValue;
-        }
+        try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : initialValue; }
+        catch { return initialValue; }
       });
-      useEffect(() => {
-        try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-      }, [key, value]);
+      useEffect(() => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }, [key, value]);
       return [value, setValue];
     }
 
-    const KIND_STYLE = {
-      flight:   { bg: "linear-gradient(135deg,#2563eb,#60a5fa)", fg: "#fff" },
-      train:    { bg: "linear-gradient(135deg,#0f766e,#34d399)", fg: "#fff" },
-      transfer: { bg: "linear-gradient(135deg,#7c3aed,#c4b5fd)", fg: "#fff" },
-      hotel:    { bg: "linear-gradient(135deg,#92400e,#f59e0b)", fg: "#fff" },
-      note:     { bg: "linear-gradient(135deg,#374151,#9ca3af)", fg: "#fff" },
-      visit:    { bg: "linear-gradient(135deg,#b91c1c,#fb7185)", fg: "#fff" },
-    };
-
-    const ZONE_UI = {
-      red:    { bar: "bg-red-500",    heading: "border-red-600 text-red-900 dark:text-red-300", chip:"bg-red-50 text-red-900 dark:bg-red-900/30 dark:text-red-200" },
-      blue:   { bar: "bg-blue-500",   heading: "border-blue-600 text-blue-900 dark:text-blue-300", chip:"bg-blue-50 text-blue-900 dark:bg-blue-900/30 dark:text-blue-200" },
-      purple: { bar: "bg-purple-500", heading: "border-purple-600 text-purple-900 dark:text-purple-300", chip:"bg-purple-50 text-purple-900 dark:bg-purple-900/30 dark:text-purple-200" },
-      emerald:{ bar: "bg-emerald-500",heading: "border-emerald-600 text-emerald-900 dark:text-emerald-300", chip:"bg-emerald-50 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200" },
-    };
-
+    // --- LIEUX (avec titres Wikipedia) ---
     const placesData = [
       { id: 1,  name: "Acropole d'Athènes", zone: "Acropole", color: "red", address: "Athens 105 58", coords: [37.9715, 23.7257],
         hours: "08:00 - 17:00", price: "Hiver: 10€ | Pass 30€", booking: "Obligatoire", myth: "Duel Athéna/Poséidon.", philo: "Hybris et Mesure.",
         website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2384", type: "Primaire",
-        image: "./assets/photos/acropole-parthenon.webp",
+        wikiTitle: "Acropole_d'Athènes",
         activity: "Monter les Propylées, faire le tour du Parthénon, voir l'Érechthéion, vue panoramique."
       },
       { id: 2,  name: "Musée de l'Acropole", zone: "Acropole", color: "red", address: "Dionysiou Areopagitou 15", coords: [37.9684, 23.7285],
         hours: "Lun-Jeu: 9h-17h | Ven: 22h", price: "Hiver: 5€", booking: "Conseillée", myth: "Caryatides.", philo: "Mémoire.",
         website: "https://www.theacropolismuseum.gr/en", type: "Primaire",
-        image: "./assets/photos/musee-acropole.webp",
+        wikiTitle: "Musée_de_l'Acropole",
         activity: "Voir les Caryatides, sols de verre, resto avec vue."
       },
       { id: 3,  name: "Colline de la Pnyx", zone: "Acropole", color: "red", address: "Pnyx", coords: [37.9716, 23.7194],
         hours: "24h/24", price: "Gratuit", booking: "Non", myth: "Zeus Hypsistos.", philo: "Démocratie.",
-        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2384", type: "Primaire",
-        image: "./assets/photos/pnyx.webp",
+        website: "https://fr.wikipedia.org/wiki/Pnyx", type: "Primaire",
+        wikiTitle: "Pnyx",
         activity: "Tribune des orateurs, vue top sur l'Acropole."
       },
       { id: 12, name: "Monument de Philopappos", zone: "Acropole", color: "red", address: "Filopappou Hill", coords: [37.9673, 23.7213],
         hours: "24h/24", price: "Gratuit", booking: "Non", myth: "Muses.", philo: "Vue panoramique.",
-        website: "http://odysseus.culture.gr/h/2/gh251.jsp?obj_id=1832", type: "Secondaire",
-        image: "./assets/photos/philopappos.webp",
+        website: "https://fr.wikipedia.org/wiki/Monument_de_Philopappos", type: "Secondaire",
+        wikiTitle: "Monument_de_Philopappos",
         activity: "Balade facile et coucher de soleil."
       },
       { id: 13, name: "Odéon d'Hérode Atticus", zone: "Acropole", color: "red", address: "Dionysiou Areopagitou", coords: [37.9708, 23.7246],
         hours: "Visible de l'extérieur", price: "-", booking: "Spectacles uniquement", myth: "Dionysos.", philo: "Musique & Tragédie.",
-        website: "http://odysseus.culture.gr/h/2/gh251.jsp?obj_id=6622", type: "Secondaire",
-        image: "./assets/photos/odeon-herode-atticus.webp",
+        website: "https://fr.wikipedia.org/wiki/Odéon_d'Hérode_Atticus", type: "Secondaire",
+        wikiTitle: "Odéon_d'Hérode_Atticus",
         activity: "Admirer depuis le chemin piétonnier."
       },
 
       { id: 4,  name: "Agora Antique", zone: "Agora", color: "blue", address: "Adrianou 24", coords: [37.9750, 23.7225],
         hours: "08:00 - 17:00", price: "Hiver: 5€ | Pass 30€", booking: "Non", myth: "Héphaïstos.", philo: "Socrate.",
-        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2485", type: "Primaire",
-        image: "./assets/photos/agora-antique.webp",
+        website: "https://fr.wikipedia.org/wiki/Agora_d'Athènes", type: "Primaire",
+        wikiTitle: "Agora_d'Athènes",
         activity: "Temple d'Héphaïstos, Stoa d'Attale, traces de la vie civique."
       },
       { id: 5,  name: "Bibliothèque d'Hadrien", zone: "Agora", color: "blue", address: "Areos 3", coords: [37.9756, 23.7262],
         hours: "08:00 - 17:00", price: "Hiver: 3€ | Pass 30€", booking: "Non", myth: "Romain.", philo: "Savoir.",
-        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2485", type: "Primaire",
-        image: "./assets/photos/bibliotheque-hadrien.webp",
+        website: "https://fr.wikipedia.org/wiki/Bibliothèque_d'Hadrien", type: "Primaire",
+        wikiTitle: "Bibliothèque_d'Hadrien",
         activity: "Vestiges romains et couches byzantines."
       },
       { id: 6,  name: "Kerameikos", zone: "Agora", color: "blue", address: "Ermou 148", coords: [37.9783, 23.7179],
         hours: "08:00 - 17:00", price: "Hiver: 4€ | Pass 30€", booking: "Non", myth: "Enfers.", philo: "Mort.",
-        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2392", type: "Primaire",
-        image: "./assets/photos/kerameikos.webp",
+        website: "https://fr.wikipedia.org/wiki/Kéramique_(Athènes)", type: "Primaire",
+        wikiTitle: "Kéramique_(Athènes)",
         activity: "Allée des tombes + petit musée."
       },
       { id: 14, name: "Temple de Zeus (Olympieion)", zone: "Agora", color: "blue", address: "Athens 105 57", coords: [37.9693, 23.7331],
         hours: "08:00 - 17:00", price: "Hiver: 3€ | Pass 30€", booking: "Non", myth: "Zeus.", philo: "Grandeur & Déclin.",
-        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2488", type: "Secondaire",
-        image: "./assets/photos/temple-zeus-olympieion.webp",
+        website: "https://fr.wikipedia.org/wiki/Temple_de_Zeus_Olympien", type: "Secondaire",
+        wikiTitle: "Temple_de_Zeus_Olympien",
         activity: "Colonnes monumentales + Porte d'Hadrien."
       },
       { id: 15, name: "Jardin National", zone: "Agora", color: "blue", address: "Leoforos Amalias 1", coords: [37.9730, 23.7369],
         hours: "Lever au Coucher", price: "Gratuit", booking: "Non", myth: "Reine Amalia.", philo: "Botanique.",
-        website: "https://www.cityofathens.gr/en/", type: "Secondaire",
-        image: "./assets/photos/jardin-national.webp",
+        website: "https://fr.wikipedia.org/wiki/Jardin_national_d'Athènes", type: "Secondaire",
+        wikiTitle: "Jardin_national_d'Athènes",
         activity: "Balade, tortues, pause lecture."
       },
 
       { id: 7,  name: "Lycée d'Aristote", zone: "Philosophie", color: "purple", address: "Rigillis 11", coords: [37.9738, 23.7443],
         hours: "08:00 - 17:00", price: "Hiver: 2€ | Pass 30€", booking: "Non", myth: "Apollon.", philo: "Logique.",
-        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2394", type: "Primaire",
-        image: "./assets/photos/lycee-aristote.webp",
+        website: "https://fr.wikipedia.org/wiki/Lycée_d'Aristote", type: "Primaire",
+        wikiTitle: "Lycée_d'Aristote",
         activity: "Lire un extrait sur place, ambiance calme."
       },
       { id: 9,  name: "Musée Archéologique", zone: "Philosophie", color: "purple", address: "28is Oktovriou 44", coords: [37.9891, 23.7326],
         hours: "08:30 - 15:30", price: "Hiver: 6€", booking: "Non", myth: "Mycènes.", philo: "Art.",
-        website: "https://www.namuseum.gr/en/", type: "Primaire",
-        image: "./assets/photos/musee-archeologique.webp",
+        website: "https://fr.wikipedia.org/wiki/Musée_national_archéologique_d'Athènes", type: "Primaire",
+        wikiTitle: "Musée_national_archéologique_d'Athènes",
         activity: "Masque d'Agamemnon, Anticythère, évolution de la statuaire."
       },
       { id: 16, name: "Stade Panathénaïque", zone: "Philosophie", color: "purple", address: "Leof. Vasileos Konstantinou", coords: [37.9686, 23.7408],
         hours: "08:00 - 17:00", price: "10€", booking: "Non", myth: "Athéna (Jeux).", philo: "Agon.",
-        website: "http://www.panathenaicstadium.gr/", type: "Secondaire",
-        image: "./assets/photos/stade-panathenaique.webp",
+        website: "https://fr.wikipedia.org/wiki/Stade_panathénaïque", type: "Secondaire",
+        wikiTitle: "Stade_panathénaïque",
         activity: "Monter en haut des gradins, tunnel, photo."
       },
       { id: 17, name: "Musée Benaki", zone: "Philosophie", color: "purple", address: "Koumpari 1", coords: [37.9760, 23.7403],
         hours: "10:00 - 18:00 (Fermé Mar)", price: "12€", booking: "Non", myth: "Histoire Grecque.", philo: "Identité.",
-        website: "https://www.benaki.org/index.php?lang=fr", type: "Secondaire",
-        image: "./assets/photos/musee-benaki.webp",
+        website: "https://fr.wikipedia.org/wiki/Musée_Benaki", type: "Secondaire",
+        wikiTitle: "Musée_Benaki",
         activity: "Histoire grecque + café terrasse."
       },
       { id: 18, name: "Musée Art Cycladique", zone: "Philosophie", color: "purple", address: "Neofitou Douka 4", coords: [37.9757, 23.7424],
         hours: "10:00 - 17:00 (Fermé Mar)", price: "12€", booking: "Non", myth: "Cyclades.", philo: "Abstraction.",
-        website: "https://cycladic.gr/en", type: "Secondaire",
-        image: "./assets/photos/musee-art-cycladique.webp",
+        website: "https://fr.wikipedia.org/wiki/Musée_d%27art_cycladique", type: "Secondaire",
+        wikiTitle: "Musée_d%27art_cycladique",
         activity: "Idoles cycladiques + aile Stathatos."
       },
 
       { id: 10, name: "Cap Sounion", zone: "Hors Ville", color: "emerald", address: "Sounio 195 00", coords: [37.6502, 24.0245],
         hours: "09:30 - Coucher soleil", price: "Hiver: 5€", booking: "Non", myth: "Égée.", philo: "Nature.",
-        website: "http://odysseus.culture.gr/h/3/eh351.jsp?obj_id=2390", type: "Primaire",
-        image: "./assets/photos/cap-sounion.webp",
+        website: "https://fr.wikipedia.org/wiki/Cap_Sounion", type: "Primaire",
+        wikiTitle: "Cap_Sounion",
         activity: "Coucher de soleil derrière les colonnes."
       },
       { id: 11, name: "Lac de Vouliagmeni", zone: "Hors Ville", color: "emerald", address: "Vouliagmeni 166 71", coords: [37.8073, 23.7854],
         hours: "08:00 - 17:00", price: "~16€", booking: "Non", myth: "Nymphes.", philo: "Soin.",
-        website: "https://www.limnivouliagmenis.gr/en/", type: "Primaire",
-        image: "./assets/photos/lac-vouliagmeni.webp",
+        website: "https://fr.wikipedia.org/wiki/Lac_de_Vouliagméni", type: "Primaire",
+        wikiTitle: "Lac_de_Vouliagméni",
         activity: "Baignade thermale + café."
       },
       { id: 19, name: "Centre Culturel SNFCC", zone: "Hors Ville", color: "emerald", address: "Leof. Syggrou 364", coords: [37.9402, 23.6923],
         hours: "06:00 - Minuit", price: "Gratuit", booking: "Pour l'Opéra", myth: "Moderne.", philo: "Espace Public.",
-        website: "https://www.snfcc.org/en", type: "Secondaire",
-        image: "./assets/photos/snfcc.webp",
+        website: "https://fr.wikipedia.org/wiki/Centre_culturel_de_la_fondation_Stávros_Niárchos", type: "Secondaire",
+        wikiTitle: "Centre_culturel_de_la_fondation_Stávros_Niárchos",
         activity: "Lighthouse, canal, bibliothèque."
       },
       { id: 20, name: "Mont Lycabette", zone: "Hors Ville", color: "emerald", address: "Aristippou 1 (Funiculaire)", coords: [37.9820, 23.7432],
         hours: "24h/24", price: "Funiculaire ~7.50€", booking: "Non", myth: "Rocher d'Athéna.", philo: "Hauteur.",
-        website: "https://www.lycabettushill.com/", type: "Secondaire",
-        image: "./assets/photos/mont-lycabette.webp",
+        website: "https://fr.wikipedia.org/wiki/Mont_Lycabette", type: "Secondaire",
+        wikiTitle: "Mont_Lycabette",
         activity: "Vue panoramique au sommet."
       },
     ];
 
-    const lifestyleData = {
-      hotels: [
-        { name: "Candia Hotel 4*", type: "Séjour", area: "Larissa / Metaxourghio", price: "—", desc: "Réservé • Petit-déj inclus.", address: "Athènes (zone Larissa)" },
-        { name: "Herodion Hotel", type: "Confort / 4*", area: "Plaka / Acropole", price: "100€-120€", desc: "Élégant, calme, proche musée.", address: "Rovertou Galli 4" },
-        { name: "Plaka Hotel", type: "Standard / 3*", area: "Plaka", price: "80€-100€", desc: "Vue toit-terrasse.", address: "Kapnikarea 7" },
-      ],
-      restaurants: [
-        { name: "Kuzina", type: "Moderne", price: "35€-50€", desc: "Vue temple Héphaïstos.", address: "Adrianou 9" },
-        { name: "To Kafeneio", type: "Taverne", price: "15€-25€", desc: "Authentique.", address: "Epicharmou 1" },
-        { name: "Strofi", type: "Historique", price: "30€-45€", desc: "Vue Parthénon.", address: "Rovertou Galli 25" },
-        { name: "O Thanasis", type: "Street Food", price: "10€-15€", desc: "Gyros / kebab (Monastiraki).", address: "Mitropoleos 69" }
-      ],
-      activities: [
-        { name: "Hammam", type: "Détente", price: "45€", desc: "Bain traditionnel (Thissio).", address: "Melidoni 1" },
-        { name: "Soirée Rebetiko", type: "Musique", price: "Repas", desc: "Blues grec en taverne.", address: "Ex: Klimataria" },
-      ]
-    };
+    const zoneOrder = ["Acropole", "Agora", "Philosophie", "Hors Ville"];
+    const colorToTailwind = { red: "red", blue: "blue", purple: "purple", emerald: "emerald" };
+    const zoneTitle = (z) => z === "Acropole" ? "Le Sacré" : z === "Agora" ? "La Cité" : z === "Philosophie" ? "La Sagesse" : "La Nature";
 
-    const photoChallenges = [
-      { id: "p1", title: "L'Imposteur", desc: "Imite la pose d'une statue.", icon: "🗿" },
-      { id: "p2", title: "Le Chat Socratique", desc: "Trouve un chat errant.", icon: "🐱" },
-      { id: "p3", title: "L'Orateur", desc: "Pose de discours intense.", icon: "📢" },
-      { id: "p4", title: "Le Gardien", desc: "Selfie avec Parthénon.", icon: "🏛️" },
-      { id: "p5", title: "Le Banquet", desc: "Ta meilleure salade/gyros.", icon: "🥗" },
-      { id: "p6", title: "L'Horizon", desc: "Regard vers la mer.", icon: "🌊" },
-    ];
-
-    // ---------- Map ----------
     const MapComponent = ({ places, darkMode }) => {
       useEffect(() => {
         const container = L.DomUtil.get('map-container');
@@ -258,7 +194,6 @@
         const map = L.map('map-container').setView([37.974, 23.73], 13);
         const lightTiles = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
         const darkTiles  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-
         L.tileLayer(darkMode ? darkTiles : lightTiles, { attribution: '&copy; OSM & CartoDB' }).addTo(map);
 
         places.forEach(place => {
@@ -279,25 +214,47 @@
       return <div id="map-container" className="shadow-xl border border-gray-200 dark:border-stone-700"></div>;
     };
 
-    // ---------- PlaceCard ----------
-    const PlaceCard = ({ p, c, getMapsLink, isSecondary=false }) => {
-      const ui = ZONE_UI[c] || ZONE_UI.blue;
+    // --- Wikipedia thumbnails ---
+    const WIKI_API = "https://fr.wikipedia.org/api/rest_v1/page/summary/";
+    const wikiUrl = (title) => "https://fr.wikipedia.org/wiki/" + title;
+
+    async function fetchWikiThumb(title) {
+      const res = await fetch(WIKI_API + encodeURIComponent(title), { mode: "cors" });
+      if (!res.ok) throw new Error("Wiki fetch failed");
+      const data = await res.json();
+      const thumb = data?.thumbnail?.source || "";
+      return { thumb, page: data?.content_urls?.desktop?.page || wikiUrl(title) };
+    }
+
+    // --- PlaceCard ---
+    const PlaceCard = ({ p, c, getMapsLink, wikiThumb }) => {
+      const img = wikiThumb?.thumb || "";
+      const wikiPage = wikiThumb?.page || wikiUrl(p.wikiTitle);
       return (
-        <div className={"bg-white dark:bg-stone-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700 overflow-hidden flex flex-col " + (isSecondary ? "opacity-95" : "")}>
-          <div className="w-full h-44 overflow-hidden relative bg-gray-100 dark:bg-stone-900">
-            <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-            <div className={"absolute bottom-0 left-0 w-full h-1 " + ui.bar}></div>
+        <div className="bg-white dark:bg-stone-800 rounded-xl shadow-sm border border-gray-100 dark:border-stone-700 overflow-hidden flex flex-col">
+          <div className="w-full h-48 overflow-hidden relative bg-gray-100 dark:bg-stone-900">
+            {img ? (
+              <img src={img} alt={p.name} className="w-full h-full object-cover" loading="lazy"/>
+            ) : (
+              <div className="w-full h-full img-skeleton"></div>
+            )}
+            <div className={"absolute bottom-0 left-0 w-full h-1 bg-" + c + "-500"}></div>
+            <div className="absolute top-2 right-2">
+              <a href={wikiPage} target="_blank" className="text-[11px] px-2 py-1 rounded bg-black/55 text-white hover:bg-black/70">
+                Photo : Wikipedia
+              </a>
+            </div>
           </div>
 
           <div className="p-5 flex-grow flex flex-col">
             <div className="flex justify-between items-start gap-2 mb-2">
-              <h4 className={"font-bold text-slate-900 dark:text-slate-100 " + (isSecondary ? "text-lg" : "text-xl")}>{p.name}</h4>
+              <h4 className="font-bold text-slate-900 dark:text-slate-100 text-lg">{p.name}</h4>
               {p.type === 'Secondaire' && <span className="text-[10px] bg-gray-100 dark:bg-stone-700 text-gray-500 px-2 py-0.5 rounded">2nd</span>}
             </div>
 
             <div className="flex flex-wrap gap-3 mb-4 text-sm">
               <a href={getMapsLink(p)} target="_blank" className="text-blue-600 dark:text-blue-400 hover:underline">📍 {p.address}</a>
-              <a href={p.website} target="_blank" className="text-gray-500 dark:text-gray-300 hover:underline">🌐 Site Web</a>
+              <a href={p.website} target="_blank" className="text-gray-500 dark:text-gray-300 hover:underline">🌐 Site</a>
             </div>
 
             <div className="bg-gray-50 dark:bg-stone-700 p-3 rounded-lg text-sm mb-4">
@@ -307,724 +264,506 @@
 
             {p.activity && (
               <div className="mb-4">
-                <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-300 mb-1 block">À faire sur place :</span>
+                <span className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-300 mb-1 block">À faire :</span>
                 <p className="text-sm text-gray-700 dark:text-gray-200 italic">“{p.activity}”</p>
               </div>
             )}
 
             <div className="space-y-2 text-sm mt-auto border-t border-gray-100 dark:border-stone-700 pt-3">
-              <div className={"p-2 rounded-lg " + ui.chip}>⚡ <b>Mythe:</b> {p.myth}</div>
-              <div className="text-sky-800 dark:text-sky-200 bg-sky-50 dark:bg-sky-900/30 p-2 rounded-lg">🧠 <b>Philo:</b> {p.philo}</div>
+              <div className={"text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg"}>⚡ <b>Mythe:</b> {p.myth}</div>
+              <div className={"text-sky-800 dark:text-sky-200 bg-sky-50 dark:bg-sky-900/30 p-2 rounded-lg"}>🧠 <b>Philo:</b> {p.philo}</div>
             </div>
           </div>
         </div>
       );
     };
 
-    // ---------- Planning ----------
-    const PlanningTab = ({ filePlanUrl="./data/tripPlan.json", darkMode }) => {
-      const [plan, setPlan] = useState(null);
-      const [error, setError] = useState("");
-      const [pxPerHour, setPxPerHour] = useState(60);
-      const [showJsonEditor, setShowJsonEditor] = useState(false);
-      const [jsonDraft, setJsonDraft] = useState("");
-      const [editingEvent, setEditingEvent] = useState(null);
-      const [override, setOverride] = useLocalStorageState("athens_tripPlan_override_v1", null);
+    // --- Planning (Agenda par jour) ---
+    const KIND = {
+      flight:   { label:"Vol",      cls:"bg-blue-600" },
+      train:    { label:"Train",    cls:"bg-teal-600" },
+      transfer: { label:"Transfert",cls:"bg-purple-600" },
+      hotel:    { label:"Hôtel",    cls:"bg-amber-600" },
+      visit:    { label:"Visite",   cls:"bg-rose-600" },
+      walk:     { label:"Balade",   cls:"bg-emerald-600" },
+      food:     { label:"Repas",    cls:"bg-stone-700" },
+      daytrip:  { label:"Excursion",cls:"bg-indigo-600" },
+      note:     { label:"Note",     cls:"bg-gray-600" },
+      alt:      { label:"Option",   cls:"bg-gray-600" },
+    };
 
-      // load from file (unless override present)
+    const Modal = ({ children, onClose }) => (
+      <div className="fixed inset-0 bg-black/55 z-[1000] flex items-center justify-center p-4" onClick={(e)=>{ if(e.target === e.currentTarget) onClose(); }}>
+        <div className="w-full max-w-2xl bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-2xl overflow-hidden shadow-2xl">
+          {children}
+        </div>
+      </div>
+    );
+
+    const PlanningTab = () => {
+      const [filePlan, setFilePlan] = useState(null);
+      const [override, setOverride] = useLocalStorageState("athens_plan_override_v2", null);
+      const [activeDay, setActiveDay] = useState("");
+      const [editing, setEditing] = useState(null); // {dayIndex,item}
+      const [jsonEditor, setJsonEditor] = useState(false);
+      const [draft, setDraft] = useState("");
+
       useEffect(() => {
-        const run = async () => {
-          try {
-            const res = await fetch(filePlanUrl, { cache: "no-store" });
-            if (!res.ok) throw new Error("Impossible de charger " + filePlanUrl + " (" + res.status + ")");
-            const filePlan = await res.json();
-            setPlan(override || filePlan);
-            setJsonDraft(JSON.stringify(override || filePlan, null, 2));
-            setError("");
-          } catch (e) {
-            setError(String(e.message || e));
-          }
-        };
-        run();
-      }, [filePlanUrl, override]);
+        (async () => {
+          const res = await fetch("./data/tripPlan.json", { cache: "no-store" });
+          const data = await res.json();
+          setFilePlan(data);
+          const plan = override || data;
+          setDraft(JSON.stringify(plan, null, 2));
+          setActiveDay(plan.days?.[0]?.date || "");
+        })().catch(()=>{});
+      }, []);
 
-      // drag-to-scroll
-      useEffect(() => {
-        const el = document.getElementById("timeline-viewport");
-        if (!el) return;
-        let isDown = false, startX = 0, scrollLeft = 0;
-        const down = (e) => { isDown = true; startX = e.pageX - el.offsetLeft; scrollLeft = el.scrollLeft; };
-        const up = () => { isDown = false; };
-        const move = (e) => {
-          if (!isDown) return;
-          e.preventDefault();
-          const x = e.pageX - el.offsetLeft;
-          const walk = (x - startX) * 1.2;
-          el.scrollLeft = scrollLeft - walk;
-        };
-        el.addEventListener("mousedown", down);
-        window.addEventListener("mouseup", up);
-        el.addEventListener("mousemove", move);
-        return () => {
-          el.removeEventListener("mousedown", down);
-          window.removeEventListener("mouseup", up);
-          el.removeEventListener("mousemove", move);
-        };
-      }, [plan]);
+      const plan = override || filePlan;
+      if (!plan) return <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-5">Chargement…</div>;
 
-      const parseMs = (iso) => new Date(iso).getTime();
-
-      const exportJson = (obj, filename) => {
+      const exportJson = (obj, name) => {
         const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
+        a.download = name;
         a.click();
-        a.remove();
         URL.revokeObjectURL(url);
       };
 
       const importJson = (file) => {
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
+        const r = new FileReader();
+        r.onload = () => {
           try {
-            const parsed = JSON.parse(String(reader.result));
-            setOverride(parsed); // override local
-            alert("Import OK (surcharge locale). Pour partager, exporte et commit le JSON.");
+            const parsed = JSON.parse(String(r.result));
+            setOverride(parsed);
+            setDraft(JSON.stringify(parsed, null, 2));
+            setActiveDay(parsed.days?.[0]?.date || "");
+            alert("Planning importé (surcharge locale).");
           } catch {
             alert("JSON invalide.");
           }
         };
-        reader.readAsText(file);
+        r.readAsText(file);
+      };
+
+      const reset = () => {
+        setOverride(null);
+        setDraft(JSON.stringify(filePlan, null, 2));
+        setActiveDay(filePlan.days?.[0]?.date || "");
+      };
+
+      const dayIndex = plan.days.findIndex(d => d.date === activeDay);
+      const day = plan.days[dayIndex] || plan.days[0];
+
+      const sortItems = (items) => {
+        const key = (it) => (it.start || "99:99");
+        return [...items].sort((a,b)=> key(a).localeCompare(key(b)));
+      };
+
+      const updatePlan = (mutator) => {
+        const next = structuredClone(plan);
+        mutator(next);
+        setOverride(next);
+        setDraft(JSON.stringify(next, null, 2));
+      };
+
+      const addItem = () => {
+        updatePlan(next => {
+          const di = next.days.findIndex(d => d.date === activeDay);
+          const newItem = { id: "i_" + Math.random().toString(16).slice(2), kind:"visit", start:"10:00", end:"11:00", title:"Nouvel élément", details:"" };
+          next.days[di].items.push(newItem);
+        });
+      };
+
+      const moveItem = (idx, dir) => {
+        updatePlan(next => {
+          const di = next.days.findIndex(d => d.date === activeDay);
+          const items = next.days[di].items;
+          const j = idx + dir;
+          if (j < 0 || j >= items.length) return;
+          const tmp = items[idx];
+          items[idx] = items[j];
+          items[j] = tmp;
+        });
       };
 
       const applyDraft = () => {
         try {
-          const parsed = JSON.parse(jsonDraft);
+          const parsed = JSON.parse(draft);
           setOverride(parsed);
-          setShowJsonEditor(false);
-          alert("Mis à jour (surcharge locale).");
+          setActiveDay(parsed.days?.[0]?.date || "");
+          setJsonEditor(false);
         } catch (e) {
           alert("JSON invalide : " + (e.message || e));
         }
       };
-
-      const resetOverride = () => {
-        setOverride(null);
-        alert("Surcharge locale supprimée. Retour au fichier data/tripPlan.json.");
-      };
-
-      const updateEventInPlan = (updated) => {
-        const next = structuredClone(plan);
-        const idx = next.events.findIndex(e => e.id === updated.id);
-        if (idx >= 0) next.events[idx] = updated;
-        setOverride(next);
-        setEditingEvent(null);
-      };
-
-      const deleteEvent = (id) => {
-        const next = structuredClone(plan);
-        next.events = next.events.filter(e => e.id !== id);
-        setOverride(next);
-        setEditingEvent(null);
-      };
-
-      const addEvent = () => {
-        const start = plan.meta.start;
-        const end = new Date(parseMs(start) + 2*36e5).toISOString(); // +2h (UTC iso)
-        const newEv = {
-          id: "e_" + Math.random().toString(16).slice(2),
-          lane: plan.lanes[0]?.id || "transport",
-          kind: "visit",
-          title: "Nouvel événement",
-          start: start,
-          end: end,
-          details: ""
-        };
-        const next = structuredClone(plan);
-        next.events.push(newEv);
-        setOverride(next);
-        setEditingEvent(newEv);
-      };
-
-      if (error) {
-        return (
-          <div className="animate-fade-in bg-white dark:bg-stone-800 border border-red-200 dark:border-red-800 rounded-xl p-5">
-            <div className="font-bold text-red-700 dark:text-red-300 mb-2">Erreur planning</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300">{error}</div>
-            <div className="text-xs text-gray-500 mt-3">
-              Vérifie que <code>data/tripPlan.json</code> existe bien dans le repo, et que le chemin est relatif (./data/tripPlan.json).
-            </div>
-          </div>
-        );
-      }
-
-      if (!plan) {
-        return (
-          <div className="animate-fade-in bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-6">
-            Chargement du planning…
-          </div>
-        );
-      }
-
-      const startMs = parseMs(plan.meta.start);
-      const endMs = parseMs(plan.meta.end);
-      const totalHours = Math.max(1, (endMs - startMs) / 36e5);
-      const widthPx = Math.max(1200, totalHours * pxPerHour);
-
-      const laneIndex = Object.fromEntries(plan.lanes.map((l, i) => [l.id, i]));
-      const laneTop = (laneId) => 52 + (laneIndex[laneId] ?? 0) * 50;
-
-      const hourTicks = [];
-      for (let h = 0; h <= Math.ceil(totalHours); h += 6) hourTicks.push(h);
 
       return (
         <div className="animate-fade-in space-y-4">
           <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl overflow-hidden">
             <div className="p-5 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-xl font-bold serif-title text-slate-900 dark:text-slate-100">🗓️ Planning</div>
+                <div className="text-xl font-bold serif-title text-slate-900 dark:text-slate-100">🗓️ Planning (Agenda)</div>
                 <div className="text-sm text-gray-500">{plan.meta.title}</div>
               </div>
-
               <div className="flex flex-wrap gap-2">
-                <button onClick={addEvent} className="px-3 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
-                  + Ajouter
-                </button>
-
-                <button onClick={() => setShowJsonEditor(v => !v)} className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-stone-700 hover:bg-gray-200 dark:hover:bg-stone-600">
-                  Éditer JSON
-                </button>
-
-                <button onClick={() => exportJson(override || plan, "tripPlan.json")} className="px-3 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-800">
-                  Export JSON
-                </button>
-
+                <button onClick={addItem} className="px-3 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">+ Ajouter</button>
+                <button onClick={()=>exportJson(plan, "tripPlan.json")} className="px-3 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-800">Exporter</button>
                 <label className="px-3 py-2 text-sm rounded-lg bg-slate-900 text-white hover:bg-slate-800 cursor-pointer">
-                  Import JSON
+                  Importer
                   <input type="file" accept="application/json" className="hidden" onChange={(e)=>importJson(e.target.files?.[0])}/>
                 </label>
+                <button onClick={()=>setJsonEditor(true)} className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-stone-700 hover:bg-gray-200 dark:hover:bg-stone-600">Éditer JSON</button>
+                {override && <button onClick={reset} className="px-3 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700">Reset</button>}
+              </div>
+            </div>
 
-                {override && (
-                  <button onClick={resetOverride} className="px-3 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700">
-                    Reset override
+            <div className="px-5 pb-5">
+              <div className="flex flex-wrap gap-2">
+                {plan.days.map(d => (
+                  <button
+                    key={d.date}
+                    onClick={()=>setActiveDay(d.date)}
+                    className={"px-3 py-2 text-sm rounded-full border transition " + (activeDay===d.date
+                      ? "bg-[#8c2f39] text-white border-[#8c2f39]"
+                      : "bg-white dark:bg-stone-900 border-gray-200 dark:border-stone-700 hover:bg-gray-50 dark:hover:bg-stone-800")}
+                  >
+                    {d.label} • {d.date}
                   </button>
-                )}
-              </div>
-            </div>
-
-            {override && (
-              <div className="px-5 pb-4 -mt-2 text-xs text-amber-700 dark:text-amber-300">
-                Surcharge locale active (localStorage). Pour partager, exporte le JSON et remplace <code>data/tripPlan.json</code> dans le repo.
-              </div>
-            )}
-
-            <div className="px-5 pb-5 flex flex-wrap items-center gap-3 text-sm">
-              <div className="text-gray-600 dark:text-gray-300">Zoom timeline</div>
-              <input
-                type="range"
-                min="30"
-                max="140"
-                value={pxPerHour}
-                onChange={(e)=>setPxPerHour(Number(e.target.value))}
-              />
-              <div className="text-gray-500">{pxPerHour}px/heure</div>
-            </div>
-
-            <div className="timeline-wrap border-t border-gray-200 dark:border-stone-700">
-              <div id="timeline-viewport" className="timeline-viewport bg-gray-50 dark:bg-stone-900/40">
-                <div className="timeline-canvas" style={{ width: widthPx }}>
-                  {/* grid + labels */}
-                  {hourTicks.map(h => {
-                    const x = h * pxPerHour;
-                    const labelDate = new Date(startMs + h*36e5);
-                    const label = labelDate.toLocaleString("fr-FR", { weekday:"short", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
-                    return (
-                      <React.Fragment key={h}>
-                        <div className={"timeline-gridline " + (darkMode ? "bg-white" : "bg-black")} style={{ left: x }}></div>
-                        <div className="timeline-label text-gray-600 dark:text-gray-300" style={{ left: x }}>
-                          {label}
-                        </div>
-                      </React.Fragment>
-                    );
-                  })}
-
-                  {/* lane labels */}
-                  {plan.lanes.map((lane, i) => (
-                    <div key={lane.id} className="timeline-lane-label text-gray-600 dark:text-gray-300" style={{ top: 52 + i*50 }}>
-                      {lane.label}
-                    </div>
-                  ))}
-
-                  {/* events */}
-                  {plan.events.map(ev => {
-                    const st = parseMs(ev.start);
-                    const en = parseMs(ev.end);
-                    const left = ((st - startMs)/36e5) * pxPerHour;
-                    const width = Math.max(18, ((en - st)/36e5) * pxPerHour);
-                    const top = laneTop(ev.lane);
-                    const style = KIND_STYLE[ev.kind] || KIND_STYLE.note;
-                    return (
-                      <div
-                        key={ev.id}
-                        className="timeline-event"
-                        style={{ left, width, top, background: style.bg, color: style.fg }}
-                        title="Cliquer pour modifier"
-                        onClick={() => setEditingEvent(ev)}
-                      >
-                        <b>{ev.title}</b>
-                        <span style={{ opacity: 0.9, marginLeft: 8, fontSize: 12 }}>
-                          {new Date(ev.start).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
-                          {" → "}
-                          {new Date(ev.end).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Essentials summary */}
-          <div className="grid lg:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-5">
-              <div className="font-bold text-slate-900 dark:text-slate-100 mb-2">📌 Infos essentielles</div>
-              <div className="text-sm text-gray-700 dark:text-gray-200">
-                <div className="mb-3"><b>Dates :</b> {plan.essentials.dates}</div>
-                <div className="mb-3"><b>Hôtel :</b><ul className="list-disc pl-5">{plan.essentials.hotel.map((x,i)=><li key={i}>{x}</li>)}</ul></div>
-                <div className="mb-3"><b>Transferts :</b><ul className="list-disc pl-5">{plan.essentials.transfers.map((x,i)=><li key={i}>{x}</li>)}</ul></div>
+          <div className="grid lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl overflow-hidden">
+              <div className="p-5 flex items-center justify-between">
+                <div className="font-bold text-slate-900 dark:text-slate-100">{day.label} — {day.date}</div>
+                <div className="text-xs text-gray-500">Clique sur un item pour modifier</div>
+              </div>
+
+              <div className="px-5 pb-5 space-y-2">
+                {sortItems(day.items).map((it, idx) => (
+                  <button
+                    key={it.id}
+                    onClick={()=>setEditing({ idx, item: it })}
+                    className="w-full text-left bg-gray-50 dark:bg-stone-900/40 border border-gray-200 dark:border-stone-700 rounded-xl p-4 hover:shadow-sm transition"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={"text-[11px] px-2 py-1 rounded-full text-white " + (KIND[it.kind]?.cls || "bg-gray-600")}>
+                            {KIND[it.kind]?.label || it.kind}
+                          </span>
+                          <span className="text-sm text-gray-600 dark:text-gray-300">
+                            {(it.start ? it.start : "—")} {it.end ? "→ " + it.end : ""}
+                          </span>
+                        </div>
+                        <div className="font-bold text-slate-900 dark:text-slate-100 mt-1 truncate">{it.title}</div>
+                        {it.details && <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{it.details}</div>}
+                      </div>
+
+                      <div className="flex gap-1 shrink-0">
+                        <span className="px-2 py-1 text-xs rounded bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700"
+                              onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); moveItem(idx, -1); }}>↑</span>
+                        <span className="px-2 py-1 text-xs rounded bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700"
+                              onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); moveItem(idx, 1); }}>↓</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5">
-              <div className="font-bold text-red-900 dark:text-red-200 mb-2">⚠️ Bagages & budget</div>
-              <div className="text-sm text-red-900/90 dark:text-red-200/90">
-                <b>Bagages :</b>
-                <ul className="list-disc pl-5 mt-1">
+            <div className="space-y-4">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5">
+                <div className="font-bold text-red-900 dark:text-red-200 mb-2">⚠️ À ne pas rater</div>
+                <ul className="list-disc pl-5 text-sm text-red-900/90 dark:text-red-200/90 space-y-1">
                   {plan.essentials.baggage.map((x,i)=><li key={i}>{x}</li>)}
                 </ul>
-                <div className="mt-3"><b>Budget :</b>
-                  <ul className="list-disc pl-5 mt-1">
-                    {plan.essentials.money.map((x,i)=><li key={i}>{x}</li>)}
-                  </ul>
+              </div>
+
+              <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-5">
+                <div className="font-bold text-slate-900 dark:text-slate-100 mb-2">✈️ Vols</div>
+                <div className="text-sm text-gray-700 dark:text-gray-200">
+                  <div className="mb-2">
+                    <b>Aller :</b> {plan.essentials.flights.outbound.flight} — {plan.essentials.flights.outbound.from} (T{plan.essentials.flights.outbound.terminal})
+                    <br/> {plan.essentials.flights.outbound.depart} → {plan.essentials.flights.outbound.arrive} ({plan.essentials.flights.outbound.to})
+                  </div>
+                  <div className="mb-2">
+                    <b>Retour :</b> {plan.essentials.flights.inbound.flight} — {plan.essentials.flights.inbound.from}
+                    <br/> {plan.essentials.flights.inbound.depart} → {plan.essentials.flights.inbound.arrive} ({plan.essentials.flights.inbound.to})
+                  </div>
+                  <div className="text-xs text-gray-500">{plan.essentials.flights.note}</div>
                 </div>
+              </div>
+
+              <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-5">
+                <div className="font-bold text-slate-900 dark:text-slate-100 mb-2">💶 Budget</div>
+                <ul className="list-disc pl-5 text-sm text-gray-700 dark:text-gray-200 space-y-1">
+                  {plan.essentials.money.map((x,i)=><li key={i}>{x}</li>)}
+                </ul>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-5">
-            <div className="font-bold text-slate-900 dark:text-slate-100 mb-2">🚪 Door-to-door</div>
-            <ul className="list-disc pl-5 text-sm text-gray-700 dark:text-gray-200">
-              {plan.essentials.doorToDoor.map((x,i)=><li key={i}>{x}</li>)}
-            </ul>
-          </div>
+          {editing && (
+            <Modal onClose={()=>setEditing(null)}>
+              <div className="p-4 border-b border-gray-200 dark:border-stone-700 flex items-center justify-between">
+                <div className="font-bold text-slate-900 dark:text-slate-100">Modifier</div>
+                <button className="px-2 py-1 rounded bg-gray-100 dark:bg-stone-700" onClick={()=>setEditing(null)}>✖</button>
+              </div>
 
-          {/* JSON editor modal */}
-          {showJsonEditor && (
-            <div className="modal-backdrop" onClick={(e)=>{ if(e.target.classList.contains('modal-backdrop')) setShowJsonEditor(false); }}>
-              <div className="modal-card bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 p-4">
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <div className="font-bold text-slate-900 dark:text-slate-100">Édition JSON (surcharge locale)</div>
-                  <button onClick={()=>setShowJsonEditor(false)} className="px-2 py-1 rounded bg-gray-100 dark:bg-stone-700">✖</button>
+              <div className="p-4 grid md:grid-cols-2 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs text-gray-500">Titre</label>
+                  <input className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
+                         value={editing.item.title}
+                         onChange={(e)=>setEditing({...editing, item:{...editing.item, title:e.target.value}})} />
                 </div>
-                <div className="text-xs text-gray-500 mb-2">
-                  Conseil : utilise “Export JSON”, remplace <code>data/tripPlan.json</code> dans le repo, commit/push pour partager.
+
+                <div>
+                  <label className="text-xs text-gray-500">Type</label>
+                  <select className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
+                          value={editing.item.kind}
+                          onChange={(e)=>setEditing({...editing, item:{...editing.item, kind:e.target.value}})}>
+                    {Object.keys(KIND).map(k => <option key={k} value={k}>{KIND[k].label}</option>)}
+                  </select>
                 </div>
-                <textarea
-                  value={jsonDraft}
-                  onChange={(e)=>setJsonDraft(e.target.value)}
-                  className="w-full h-80 font-mono text-xs p-3 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
-                />
-                <div className="mt-3 flex gap-2 justify-end">
-                  <button onClick={()=>setShowJsonEditor(false)} className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-stone-700">Annuler</button>
-                  <button onClick={applyDraft} className="px-3 py-2 text-sm rounded-lg bg-emerald-600 text-white">Appliquer</button>
+
+                <div>
+                  <label className="text-xs text-gray-500">Heure</label>
+                  <div className="flex gap-2">
+                    <input className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
+                           placeholder="début"
+                           value={editing.item.start || ""}
+                           onChange={(e)=>setEditing({...editing, item:{...editing.item, start:e.target.value}})} />
+                    <input className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
+                           placeholder="fin (optionnel)"
+                           value={editing.item.end || ""}
+                           onChange={(e)=>setEditing({...editing, item:{...editing.item, end:e.target.value}})} />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-xs text-gray-500">Détails</label>
+                  <textarea className="w-full h-28 px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
+                            value={editing.item.details || ""}
+                            onChange={(e)=>setEditing({...editing, item:{...editing.item, details:e.target.value}})} />
                 </div>
               </div>
-            </div>
+
+              <div className="p-4 border-t border-gray-200 dark:border-stone-700 flex justify-between">
+                <button className="px-3 py-2 text-sm rounded-lg bg-red-600 text-white"
+                        onClick={()=>{
+                          updatePlan(next => {
+                            const di = next.days.findIndex(d => d.date === activeDay);
+                            next.days[di].items = next.days[di].items.filter(x => x.id !== editing.item.id);
+                          });
+                          setEditing(null);
+                        }}>
+                  Supprimer
+                </button>
+
+                <div className="flex gap-2">
+                  <button className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-stone-700"
+                          onClick={()=>setEditing(null)}>
+                    Annuler
+                  </button>
+                  <button className="px-3 py-2 text-sm rounded-lg bg-emerald-600 text-white"
+                          onClick={()=>{
+                            updatePlan(next => {
+                              const di = next.days.findIndex(d => d.date === activeDay);
+                              const idx = next.days[di].items.findIndex(x => x.id === editing.item.id);
+                              if (idx >= 0) next.days[di].items[idx] = editing.item;
+                            });
+                            setEditing(null);
+                          }}>
+                    Enregistrer
+                  </button>
+                </div>
+              </div>
+            </Modal>
           )}
 
-          {/* event editor modal */}
-          {editingEvent && (
-            <div className="modal-backdrop" onClick={(e)=>{ if(e.target.classList.contains('modal-backdrop')) setEditingEvent(null); }}>
-              <div className="modal-card bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 p-4">
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <div className="font-bold text-slate-900 dark:text-slate-100">Modifier l’événement</div>
-                  <button onClick={()=>setEditingEvent(null)} className="px-2 py-1 rounded bg-gray-100 dark:bg-stone-700">✖</button>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-500">Titre</label>
-                    <input
-                      value={editingEvent.title}
-                      onChange={(e)=>setEditingEvent({...editingEvent, title:e.target.value})}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Lane</label>
-                    <select
-                      value={editingEvent.lane}
-                      onChange={(e)=>setEditingEvent({...editingEvent, lane:e.target.value})}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
-                    >
-                      {plan.lanes.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Type</label>
-                    <select
-                      value={editingEvent.kind}
-                      onChange={(e)=>setEditingEvent({...editingEvent, kind:e.target.value})}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
-                    >
-                      {Object.keys(KIND_STYLE).map(k => <option key={k} value={k}>{k}</option>)}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Début (ISO)</label>
-                    <input
-                      value={editingEvent.start}
-                      onChange={(e)=>setEditingEvent({...editingEvent, start:e.target.value})}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900 font-mono text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Fin (ISO)</label>
-                    <input
-                      value={editingEvent.end}
-                      onChange={(e)=>setEditingEvent({...editingEvent, end:e.target.value})}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900 font-mono text-xs"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-gray-500">Détails</label>
-                    <textarea
-                      value={editingEvent.details || ""}
-                      onChange={(e)=>setEditingEvent({...editingEvent, details:e.target.value})}
-                      className="w-full h-28 px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-3 flex gap-2 justify-between">
-                  <button
-                    onClick={()=>{ if(confirm("Supprimer cet événement ?")) deleteEvent(editingEvent.id); }}
-                    className="px-3 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700"
-                  >
-                    Supprimer
-                  </button>
-
-                  <div className="flex gap-2">
-                    <button onClick={()=>setEditingEvent(null)} className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-stone-700">Annuler</button>
-                    <button onClick={()=>updateEventInPlan(editingEvent)} className="px-3 py-2 text-sm rounded-lg bg-emerald-600 text-white">Enregistrer</button>
-                  </div>
-                </div>
-
-                <div className="text-xs text-gray-500 mt-3">
-                  Astuce : pour partager les modifications, utilise “Export JSON” puis remplace <code>data/tripPlan.json</code> dans le repo.
-                </div>
+          {jsonEditor && (
+            <Modal onClose={()=>setJsonEditor(false)}>
+              <div className="p-4 border-b border-gray-200 dark:border-stone-700 flex items-center justify-between">
+                <div className="font-bold text-slate-900 dark:text-slate-100">Édition JSON (surcharge locale)</div>
+                <button className="px-2 py-1 rounded bg-gray-100 dark:bg-stone-700" onClick={()=>setJsonEditor(false)}>✖</button>
               </div>
-            </div>
+              <div className="p-4">
+                <div className="text-xs text-gray-500 mb-2">
+                  Pour partager : Exporter → remplacer <code>data/tripPlan.json</code> → commit/push.
+                </div>
+                <textarea className="w-full h-80 font-mono text-xs p-3 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
+                          value={draft}
+                          onChange={(e)=>setDraft(e.target.value)}></textarea>
+              </div>
+              <div className="p-4 border-t border-gray-200 dark:border-stone-700 flex justify-end gap-2">
+                <button className="px-3 py-2 text-sm rounded-lg bg-gray-100 dark:bg-stone-700" onClick={()=>setJsonEditor(false)}>Annuler</button>
+                <button className="px-3 py-2 text-sm rounded-lg bg-emerald-600 text-white" onClick={applyDraft}>Appliquer</button>
+              </div>
+            </Modal>
           )}
         </div>
       );
     };
 
-    // ---------- App ----------
+    // --- App ---
     const App = () => {
-      const [activeTab, setActiveTab] = useLocalStorageState('athens_active_tab_v1', 'zones');
-      const [darkMode, setDarkMode] = useLocalStorageState('athens_dark_v1', false);
-      const [userPhotos, setUserPhotos] = useLocalStorageState('athens_user_photos_v1', {});
+      const [activeTab, setActiveTab] = useLocalStorageState("athens_tab_v2", "zones");
+      const [darkMode, setDarkMode] = useLocalStorageState("athens_dark_v2", false);
       const [query, setQuery] = useState("");
-      const [showSecondaries, setShowSecondaries] = useState(true);
+      const [thumbs, setThumbs] = useState({}); // {placeId: {thumb,page}}
 
       useEffect(() => {
-        if (darkMode) document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
+        if (darkMode) document.documentElement.classList.add("dark");
+        else document.documentElement.classList.remove("dark");
       }, [darkMode]);
 
-      const handlePhotoUpload = (challengeId, event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-        const imageUrl = URL.createObjectURL(file);
-        setUserPhotos(prev => ({ ...prev, [challengeId]: imageUrl }));
-      };
-
-      const clearPhoto = (challengeId) => {
-        setUserPhotos(prev => {
-          const copy = { ...prev };
-          delete copy[challengeId];
-          return copy;
-        });
-      };
-
       const getMapsLink = (place) => {
-        const query = encodeURIComponent(`${place.address} ${place.name} Athens`);
-        return `https://www.google.com/maps/search/?api=1&query=${query}`;
+        const q = encodeURIComponent(`${place.address} ${place.name} Athens`);
+        return `https://www.google.com/maps/search/?api=1&query=${q}`;
       };
+
+      // Load wiki thumbs once (simple concurrency: sequential)
+      useEffect(() => {
+        let cancelled = false;
+        (async () => {
+          for (const p of placesData) {
+            if (!p.wikiTitle) continue;
+            if (thumbs[p.id]) continue;
+            try {
+              const info = await fetchWikiThumb(p.wikiTitle);
+              if (cancelled) return;
+              setThumbs(prev => ({ ...prev, [p.id]: info }));
+            } catch {
+              // ignore
+            }
+          }
+        })();
+        return () => { cancelled = true; };
+      }, []);
 
       const filteredPlaces = useMemo(() => {
         const q = query.trim().toLowerCase();
-        return placesData.filter(p => {
-          const okText = !q || (p.name + " " + p.zone + " " + p.address).toLowerCase().includes(q);
-          const okType = showSecondaries ? true : p.type === "Primaire";
-          return okText && okType;
-        });
-      }, [query, showSecondaries]);
+        return placesData.filter(p => !q || (p.name + " " + p.zone + " " + p.address).toLowerCase().includes(q));
+      }, [query]);
 
-      const groupByZone = (data) => data.reduce((acc, p) => { (acc[p.zone] = acc[p.zone] || []).push(p); return acc; }, {});
-      const groupedPlaces = useMemo(() => groupByZone(filteredPlaces), [filteredPlaces]);
-      const zoneOrder = ["Acropole", "Agora", "Philosophie", "Hors Ville"];
-
-      const heroUrl = "./assets/photos/hero.webp";
+      const grouped = useMemo(() => {
+        const acc = {};
+        for (const p of filteredPlaces) (acc[p.zone] = acc[p.zone] || []).push(p);
+        return acc;
+      }, [filteredPlaces]);
 
       return (
         <div className="max-w-6xl mx-auto p-4 md:p-8 min-h-screen">
 
-          {/* Top bar */}
-          <div className="flex justify-between items-center gap-3 mb-4">
-            <div className="text-xs text-gray-500 dark:text-gray-400">Guide • Statique GitHub Pages</div>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="text-xs text-gray-500 dark:text-gray-400">GitHub Pages • Photos via Wikipedia • Planning agenda</div>
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full bg-gray-200 dark:bg-stone-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-stone-600 transition-colors flex items-center gap-2 text-sm font-bold"
+              className="p-2 rounded-full bg-gray-200 dark:bg-stone-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-stone-600 transition-colors text-sm font-bold"
             >
-              {darkMode ? '☀️ Mode Jour' : '🌙 Mode Nuit'}
+              {darkMode ? "☀️ Mode Jour" : "🌙 Mode Nuit"}
             </button>
           </div>
 
-          {/* Hero */}
-          <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-stone-700 shadow-sm mb-8">
-            <div className="h-52 md:h-64 bg-cover bg-center relative" style={{ backgroundImage: `url(${heroUrl})` }}>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/10"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-5 md:p-7">
-                <h1 className="text-4xl md:text-6xl text-white mb-1 tracking-tight">Athènes</h1>
-                <h2 className="text-lg md:text-2xl text-white/85 italic font-light font-serif">Guide Ultime</h2>
-                <div className="mt-3 inline-flex items-center gap-2 px-4 py-1 bg-white/15 text-white rounded-full text-sm border border-white/20">
-                  <span>⛅ Météo Moy. Janvier :</span><span className="font-bold">10°C - 15°C</span>
+          <header className="mb-8">
+            <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-2xl p-6 md:p-8">
+              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                <div>
+                  <h1 className="text-4xl md:text-6xl text-slate-900 dark:text-slate-100 tracking-tight">Athènes</h1>
+                  <h2 className="text-lg md:text-2xl text-slate-600 dark:text-slate-300 italic font-light font-serif">Guide pratique + planning</h2>
+                  <div className="mt-3 inline-flex items-center gap-2 px-4 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm border border-blue-100 dark:border-blue-800">
+                    <span>⛅ Janvier :</span><span className="font-bold">10°C - 15°C</span>
+                  </div>
+                </div>
+
+                <div className="w-full md:w-[360px]">
+                  <div className="text-xs text-gray-500 mb-1">Recherche lieux</div>
+                  <input
+                    value={query}
+                    onChange={(e)=>setQuery(e.target.value)}
+                    placeholder="Acropole, Agora, musée..."
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
+                  />
                 </div>
               </div>
             </div>
-          </div>
+          </header>
 
-          {/* Nav */}
-          <nav className="flex flex-wrap justify-center gap-2 md:gap-6 mb-8 border-b border-gray-200 dark:border-stone-700 sticky top-0 bg-[#f4f1ea] dark:bg-stone-900 z-20 py-2 transition-colors duration-300">
+          <nav className="flex flex-wrap justify-center gap-2 md:gap-6 mb-8 border-b border-gray-200 dark:border-stone-700 sticky top-0 bg-[#f4f1ea] dark:bg-stone-900 z-20 py-2">
             {[
-              { id: 'zones', label: '🏛️ Lieux & Culture' },
-              { id: 'planning', label: '🗓️ Planning' },
-              { id: 'map', label: '🗺️ Carte' },
-              { id: 'lifestyle', label: '🍷 Vie Pratique' },
-              { id: 'photos', label: '📸 Défi Photo' }
+              { id: "zones", label: "🏛️ Lieux" },
+              { id: "planning", label: "🗓️ Planning" },
+              { id: "map", label: "🗺️ Carte" },
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-full text-sm md:text-base transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-[#8c2f39] text-white shadow-lg'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-stone-800'
-                }`}
+                className={"px-4 py-2 rounded-full text-sm md:text-base transition-all " + (activeTab===tab.id
+                  ? "bg-[#8c2f39] text-white shadow-lg"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-stone-800")}
               >
                 {tab.label}
               </button>
             ))}
           </nav>
 
-          {/* Zones */}
-          {activeTab === 'zones' && (
-            <div className="animate-fade-in space-y-8">
-
-              <div className="bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-3 justify-between">
-                <div className="flex-1">
-                  <div className="text-xs text-gray-500 mb-1">Recherche</div>
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Ex: Acropole, Agora, musée..."
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-stone-700 bg-white dark:bg-stone-900"
-                  />
-                </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 select-none">
-                  <input type="checkbox" checked={showSecondaries} onChange={() => setShowSecondaries(v => !v)} />
-                  Afficher les secondaires
-                </label>
-              </div>
-
-              {["Acropole", "Agora", "Philosophie", "Hors Ville"].map(zone => {
-                const places = groupedPlaces[zone] || [];
+          {activeTab === "zones" && (
+            <div className="animate-fade-in space-y-10">
+              {zoneOrder.map(zone => {
+                const places = grouped[zone] || [];
                 if (!places.length) return null;
+                const c = colorToTailwind[places[0].color] || "blue";
 
-                const zoneColor = places[0]?.color || 'blue';
-                const colorMap = { red: 'red', blue: 'blue', purple: 'purple', emerald: 'emerald' };
-                const c = colorMap[zoneColor] || 'blue';
-                const ui = ZONE_UI[c] || ZONE_UI.blue;
-
-                const primaries = places.filter(p => p.type === 'Primaire');
-                const secondaries = places.filter(p => p.type === 'Secondaire');
+                const primaries = places.filter(p => p.type === "Primaire");
+                const secondaries = places.filter(p => p.type === "Secondaire");
 
                 return (
                   <section key={zone}>
-                    <h3 className={`text-2xl font-bold serif-title mb-5 pb-2 border-b-2 ${ui.heading}`}>
-                      {zone === "Acropole" ? "Le Sacré" : zone === "Agora" ? "La Cité" : zone === "Philosophie" ? "La Sagesse" : "La Nature"}
+                    <h3 className={"text-2xl font-bold serif-title mb-5 pb-2 border-b-2 border-" + c + "-600 text-" + c + "-900 dark:text-" + c + "-300"}>
+                      {zoneTitle(zone)}
                     </h3>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {primaries.map(p => (
-                        <PlaceCard key={p.id} p={p} c={c} getMapsLink={getMapsLink} />
+                        <PlaceCard key={p.id} p={p} c={c} getMapsLink={getMapsLink} wikiThumb={thumbs[p.id]} />
+                      ))}
+                      {secondaries.map(p => (
+                        <PlaceCard key={p.id} p={p} c={c} getMapsLink={getMapsLink} wikiThumb={thumbs[p.id]} />
                       ))}
                     </div>
-
-                    {secondaries.length > 0 && (
-                      <>
-                        <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-4 mt-8 flex items-center">
-                          <span className="w-4 h-px bg-gray-400 mr-2"></span>
-                          Iconiques Secondaires
-                          <span className="w-full h-px bg-gray-200 dark:bg-stone-700 ml-2"></span>
-                        </h4>
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {secondaries.map(p => (
-                            <PlaceCard key={p.id} p={p} c={c} getMapsLink={getMapsLink} isSecondary={true} />
-                          ))}
-                        </div>
-                      </>
-                    )}
                   </section>
                 );
               })}
             </div>
           )}
 
-          {/* Planning */}
-          {activeTab === 'planning' && (
-            <PlanningTab filePlanUrl="./data/tripPlan.json" darkMode={darkMode} />
+          {activeTab === "planning" && (
+            <PlanningTab />
           )}
 
-          {/* Map */}
-          {activeTab === 'map' && (
+          {activeTab === "map" && (
             <div className="animate-fade-in bg-white dark:bg-stone-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-stone-700">
               <MapComponent places={placesData} darkMode={darkMode} />
-              <p className="text-center text-gray-500 text-sm mt-4">
-                Carte : sites majeurs (grands points) et secondaires (petits points).
-              </p>
-            </div>
-          )}
-
-          {/* Lifestyle */}
-          {activeTab === 'lifestyle' && (
-            <div className="grid gap-12 animate-fade-in">
-              <section>
-                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🛏️ Hôtels (Janvier)</h3>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {lifestyleData.hotels.map((h, i) => (
-                    <div key={i} className="bg-white dark:bg-stone-800 p-6 rounded-lg border border-gray-100 dark:border-stone-700 shadow-sm">
-                      <div className="flex justify-between items-start mb-2 gap-2">
-                        <h4 className="font-bold text-lg text-slate-900 dark:text-slate-100">{h.name}</h4>
-                        <span className="text-xs bg-gray-100 dark:bg-stone-700 dark:text-gray-300 px-2 py-1 rounded">{h.type}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{h.desc}</p>
-                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{h.price}</p>
-                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.address + ' ' + h.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">📍 {h.address}</a>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🍽️ Restaurants & Tavernes</h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {lifestyleData.restaurants.map((r, i) => (
-                    <div key={i} className="bg-white dark:bg-stone-800 p-6 rounded-lg border border-gray-100 dark:border-stone-700 shadow-sm">
-                      <h4 className="font-bold text-lg mb-1 text-slate-900 dark:text-slate-100">{r.name}</h4>
-                      <p className="text-xs text-amber-700 dark:text-amber-500 font-bold mb-2">{r.type}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{r.desc}</p>
-                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{r.price}</p>
-                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address + ' ' + r.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">{r.address}</a>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-2xl font-bold serif-title text-slate-800 dark:text-slate-200 mb-6">🎭 Activités & Détente</h3>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {lifestyleData.activities.map((a, i) => (
-                    <div key={i} className="bg-stone-50 dark:bg-stone-800 p-6 rounded-lg border-l-4 border-slate-400 dark:border-slate-600">
-                      <div className="flex justify-between mb-1 gap-2">
-                        <h4 className="font-bold text-lg text-slate-900 dark:text-slate-100">{a.name}</h4>
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{a.price}</span>
-                      </div>
-                      <p className="text-sm text-gray-700 dark:text-gray-400">{a.desc}</p>
-                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a.address + ' ' + a.name + ' Athens')}`} target="_blank" className="text-xs text-blue-600 dark:text-blue-400 mt-2 block hover:underline">📍 {a.address}</a>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
-          )}
-
-          {/* Photos */}
-          {activeTab === 'photos' && (
-            <div className="animate-fade-in">
-              <div className="text-center mb-8 bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                <h3 className="text-2xl font-bold serif-title text-yellow-800 dark:text-yellow-500 mb-2">📸 Bingo Photo</h3>
-                <p className="text-gray-700 dark:text-gray-300">6 missions à remplir (stockage local).</p>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
-                {photoChallenges.map(chal => (
-                  <div key={chal.id} className="relative">
-                    <label className="cursor-pointer group block">
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoUpload(chal.id, e)} />
-                      <div className={`rounded-xl border-4 shadow-md flex flex-col items-center justify-center p-4 text-center overflow-hidden relative bg-white dark:bg-stone-800 aspect-square ${
-                        userPhotos[chal.id]
-                          ? 'border-green-500'
-                          : 'border-dashed border-gray-300 dark:border-stone-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-stone-700'
-                      }`}>
-                        {userPhotos[chal.id] ? (
-                          <>
-                            <img src={userPhotos[chal.id]} className="absolute inset-0 w-full h-full object-cover opacity-90" />
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-xs font-bold">✅ {chal.title}</div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-4xl mb-2">{chal.icon}</div>
-                            <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{chal.title}</h4>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">{chal.desc}</p>
-                            <div className="mt-4 px-3 py-1 bg-gray-100 dark:bg-stone-700 rounded-full text-xs text-gray-400 group-hover:bg-blue-200 group-hover:text-blue-800 transition-colors">
-                              Clique pour ajouter
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </label>
-
-                    {userPhotos[chal.id] && (
-                      <button onClick={() => clearPhoto(chal.id)} className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded hover:bg-black/80">
-                        ✖
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <p className="text-center text-gray-500 text-sm mt-4">Carte : sites majeurs et secondaires.</p>
             </div>
           )}
 
           <footer className="mt-16 text-center text-gray-400 text-sm pb-8 border-t border-gray-200 dark:border-stone-700 pt-8">
-            Athènes • Guide statique • Planning modifiable (JSON)
+            Athènes • Photos via Wikipedia • Planning agenda
           </footer>
         </div>
       );
     };
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
+    const root = ReactDOM.createRoot(document.getElementById("root"));
     root.render(<App />);
   </script>
 </body>
