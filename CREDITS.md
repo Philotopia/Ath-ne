@@ -1,7 +1,10 @@
-# Crédits photos
+# Crédits photos (lieux)
 
-Ce site charge des miniatures **depuis l’API Wikipedia REST** (`/page/summary/...`) via la propriété `thumbnail.source`.
-Chaque carte propose un lien "Photo : Wikipedia" vers la page correspondante (source + licence).
+Les images sont récupérées depuis Wikipedia via :
+`https://fr.wikipedia.org/api/rest_v1/page/summary/<titre>`
 
-Si tu veux **packager des images dans le repo** (offline), prends des fichiers depuis Wikimedia Commons avec licence libre
-et ajoute une page de crédits détaillant auteur + licence + URL de la page du fichier.
+La miniature affichée vient de `thumbnail.source`.
+La source/licence/auteur sont indiqués sur la page Wikipedia / Wikimedia associée (lien “Photo : Wikipedia” dans le site).
+
+Si tu veux packager des images dans le repo (offline), prends des fichiers libres depuis Wikimedia Commons
+et ajoute ici : titre → auteur → licence → URL.

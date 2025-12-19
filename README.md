@@ -2,18 +2,21 @@
 
 Site statique (un seul `index.html`) prêt à commit sur GitHub Pages.
 
-## Points clés
-- **Photos réelles** : chargées depuis **Wikipedia** (API REST) à partir d'un `wikiTitle` par lieu.
-- **Planning utilisable** : vue **Agenda par jour** (pas de timeline), édition via formulaire, import/export JSON.
+## Onglets
+- 🏛️ **Lieux** (cartes, mythe/philo, activité, liens Maps + site)
+- 🗓️ **Planning** (agenda par jour, édition, import/export JSON)
+- 🗺️ **Carte** (Leaflet)
+- 🍷 **Vie pratique**
+- 📸 **Défi photo** (stockage local)
 
-## Déploiement
+## Photos
+Les photos des lieux sont chargées automatiquement depuis Wikipedia (API REST).
+Chaque carte inclut un lien “Photo : Wikipedia” vers la page source (où se trouvent auteur/licence).
+
+## Déploiement GitHub Pages
 Repo → Settings → Pages → Deploy from a branch → `main` + `/(root)`
 
-URL : `https://<user>.github.io/<repo>/`
-
 ## Modifier le planning
-- Onglet **Planning** → boutons **Importer / Exporter**.
-- Pour partager à tout le monde : export → remplacer `data/tripPlan.json` → commit/push.
+- Onglet **Planning** → **Exporter** → remplace `data/tripPlan.json` par le fichier exporté → commit/push
+- **Importer** applique une surcharge **locale** (localStorage) sans toucher au repo.
 
-## Remarque photos (licences)
-Les miniatures viennent de Wikipedia/Commons. Dans chaque carte, le lien "Photo : Wikipedia" pointe vers la page source.
